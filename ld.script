@@ -106,7 +106,7 @@ SECTIONS
   .exception_ranges   : ONLY_IF_RO { *(.exception_ranges*) }
   /* Adjust the address for the data segment.  We want to adjust up to
      the same address within the page on the next page up.  */
-  . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE));
+  . = ALIGN(4096);
   /* Exception handling  */
   .eh_frame       : ONLY_IF_RW { KEEP (*(.eh_frame)) *(.eh_frame.*) }
   .gnu_extab      : ONLY_IF_RW { *(.gnu_extab) }
@@ -172,7 +172,6 @@ SECTIONS
   .data.rel.ro : { *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*) }
   .dynamic        : { *(.dynamic) }
   .got            : { *(.got) *(.igot) }
-  . = DATA_SEGMENT_RELRO_END (SIZEOF (.got.plt) >= 12 ? 12 : 0, .);
   .got.plt        : { *(.got.plt) *(.igot.plt) }
 
   _edata = .; PROVIDE (edata = .);
@@ -202,12 +201,8 @@ SECTIONS
    ebss = ABSOLUTE(.) ;        /* ebss: end of bss                     */
   }
   
-  . = ALIGN(32 / 8);
-  . = SEGMENT_START("ldata-segment", .);
-  . = ALIGN(32 / 8);
   end = ABSOLUTE(.);          /* end: end of image                    */
   _end = ABSOLUTE(.);         /* _end: end of image                   */
-  . = DATA_SEGMENT_END (.);
 
   /* Stabs debugging sections.  */
   .stab          0 : { *(.stab) }

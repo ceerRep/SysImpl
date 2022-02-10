@@ -13,6 +13,6 @@
         "panic.h": "c",
         "ctype.h": "c",
         "stdio.h": "c",
-        "exception": "cpp"
+        "fp_lib.h": "c"
     }
 }
