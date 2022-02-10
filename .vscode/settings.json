@@ -1,0 +1,18 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cmake.configureArgs": [
+        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/toolchain.cmake"
+    ],
+    "cmake.configureOnOpen": true,
+    "files.associations": {
+        "stddef.h": "c",
+        "string.h": "c",
+        "new": "cpp",
+        "stdlib.h": "c",
+        "heap.h": "c",
+        "panic.h": "c",
+        "ctype.h": "c",
+        "stdio.h": "c",
+        "exception": "cpp"
+    }
+}

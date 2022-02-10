@@ -1,0 +1,30 @@
+#ifndef _ld_syms
+
+#define _ld_syms
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define DEFINE_LD_SYM(name) extern char name[0]
+
+DEFINE_LD_SYM(CODE16);
+DEFINE_LD_SYM(CODE16END);
+DEFINE_LD_SYM(CODE16STACKBOTTOM);
+DEFINE_LD_SYM(CODE16STACKTOP);
+DEFINE_LD_SYM(VGA_BASE);
+DEFINE_LD_SYM(VGA_TEXT_BASE);
+DEFINE_LD_SYM(__init_array_start);
+DEFINE_LD_SYM(__init_array_end);
+DEFINE_LD_SYM(BOOT_STACK_START);
+DEFINE_LD_SYM(BOOT_STACK);
+DEFINE_LD_SYM(KERNEL_BOOT_HEAP_START);
+DEFINE_LD_SYM(KERNEL_BOOT_HEAP_END);
+
+#undef DEFINE_LD_SYM
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

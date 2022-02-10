@@ -1,0 +1,8 @@
+#ifndef _KERNEL_DEFINES_H
+
+#define _KERNEL_DEFINES_H
+
+#define KERNEL_STACK_SIZE 8192
+#define SERIAL_PORT 0x3f8 // COM1
+
+#endif
