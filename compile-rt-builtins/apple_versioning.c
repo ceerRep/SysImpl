@@ -12,26 +12,26 @@
 #if __IPHONE_OS_VERSION_MIN_REQUIRED
 #define NOT_HERE_BEFORE_10_6(sym)
 #define NOT_HERE_IN_10_8_AND_EARLIER(sym)                                      \
-  extern const char sym##_tmp61 __asm("$ld$hide$os6.1$_" #sym);                \
+  extern const char sym##_tmp61 __asm volatile("$ld$hide$os6.1$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp61 = 0;           \
-  extern const char sym##_tmp60 __asm("$ld$hide$os6.0$_" #sym);                \
+  extern const char sym##_tmp60 __asm volatile("$ld$hide$os6.0$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp60 = 0;           \
-  extern const char sym##_tmp51 __asm("$ld$hide$os5.1$_" #sym);                \
+  extern const char sym##_tmp51 __asm volatile("$ld$hide$os5.1$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp51 = 0;           \
-  extern const char sym##_tmp50 __asm("$ld$hide$os5.0$_" #sym);                \
+  extern const char sym##_tmp50 __asm volatile("$ld$hide$os5.0$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp50 = 0;
 #else
 #define NOT_HERE_BEFORE_10_6(sym)                                              \
-  extern const char sym##_tmp4 __asm("$ld$hide$os10.4$_" #sym);                \
+  extern const char sym##_tmp4 __asm volatile("$ld$hide$os10.4$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp4 = 0;            \
-  extern const char sym##_tmp5 __asm("$ld$hide$os10.5$_" #sym);                \
+  extern const char sym##_tmp5 __asm volatile("$ld$hide$os10.5$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp5 = 0;
 #define NOT_HERE_IN_10_8_AND_EARLIER(sym)                                      \
-  extern const char sym##_tmp8 __asm("$ld$hide$os10.8$_" #sym);                \
+  extern const char sym##_tmp8 __asm volatile("$ld$hide$os10.8$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp8 = 0;            \
-  extern const char sym##_tmp7 __asm("$ld$hide$os10.7$_" #sym);                \
+  extern const char sym##_tmp7 __asm volatile("$ld$hide$os10.7$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp7 = 0;            \
-  extern const char sym##_tmp6 __asm("$ld$hide$os10.6$_" #sym);                \
+  extern const char sym##_tmp6 __asm volatile("$ld$hide$os10.6$_" #sym);                \
   __attribute__((visibility("default"))) const char sym##_tmp6 = 0;
 #endif
 
@@ -197,19 +197,19 @@ NOT_HERE_IN_10_8_AND_EARLIER(__atomic_store_8)
 
 #if __arm__ && __DYNAMIC__
 #define NOT_HERE_UNTIL_AFTER_4_3(sym)                                          \
-  extern const char sym##_tmp1 __asm("$ld$hide$os3.0$_" #sym);                 \
+  extern const char sym##_tmp1 __asm volatile("$ld$hide$os3.0$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp1 = 0;            \
-  extern const char sym##_tmp2 __asm("$ld$hide$os3.1$_" #sym);                 \
+  extern const char sym##_tmp2 __asm volatile("$ld$hide$os3.1$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp2 = 0;            \
-  extern const char sym##_tmp3 __asm("$ld$hide$os3.2$_" #sym);                 \
+  extern const char sym##_tmp3 __asm volatile("$ld$hide$os3.2$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp3 = 0;            \
-  extern const char sym##_tmp4 __asm("$ld$hide$os4.0$_" #sym);                 \
+  extern const char sym##_tmp4 __asm volatile("$ld$hide$os4.0$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp4 = 0;            \
-  extern const char sym##_tmp5 __asm("$ld$hide$os4.1$_" #sym);                 \
+  extern const char sym##_tmp5 __asm volatile("$ld$hide$os4.1$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp5 = 0;            \
-  extern const char sym##_tmp6 __asm("$ld$hide$os4.2$_" #sym);                 \
+  extern const char sym##_tmp6 __asm volatile("$ld$hide$os4.2$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp6 = 0;            \
-  extern const char sym##_tmp7 __asm("$ld$hide$os4.3$_" #sym);                 \
+  extern const char sym##_tmp7 __asm volatile("$ld$hide$os4.3$_" #sym);                 \
   __attribute__((visibility("default"))) const char sym##_tmp7 = 0;
 
 NOT_HERE_UNTIL_AFTER_4_3(__absvdi2)

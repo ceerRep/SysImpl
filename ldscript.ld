@@ -8,6 +8,7 @@ OUTPUT_FORMAT("elf32-i386", "elf32-i386",
 OUTPUT_ARCH(i386)
 ENTRY(start)
 physbase = 0x400000;
+userspace = 0x2000000;
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
@@ -191,6 +192,7 @@ SECTIONS
       pad the .data section.  */
    . = ALIGN(4096);
    BOOT_STACK_START = ABSOLUTE(.);
+   KERNEL_BOOT_STACK_PROTECTOR = ABSOLUTE(.);
    . = . + 1024 * 1024;                /* stack before gdt initialized         */
    BOOT_STACK = ABSOLUTE(.);
    KERNEL_BOOT_HEAP_START = ABSOLUTE(.);
@@ -252,4 +254,7 @@ SECTIONS
   .debug_sup      0 : { *(.debug_sup) }
   .gnu.attributes 0 : { KEEP (*(.gnu.attributes)) }
   /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }
+
+  . = userspace;
+  USER_SPACE_START = ABSOLUTE(.);
 }

@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2010-2011 PathScale, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS
  * IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -38,12 +38,12 @@
 #include "stdexcept.h"
 #include "atomic.h"
 
-
 namespace std
 {
-	struct nothrow_t {};
+	struct nothrow_t
+	{
+	};
 }
-
 
 /// The type of the function called when allocation fails.
 typedef void (*new_handler)();
@@ -59,18 +59,19 @@ namespace std
 	 * Sets a function to be called when there is a failure in new.
 	 */
 	__attribute__((weak))
-	new_handler set_new_handler(new_handler handler)
+	new_handler
+	set_new_handler(new_handler handler)
 	{
 		return new_handl.exchange(handler);
 	}
 
 	__attribute__((weak))
-	new_handler get_new_handler(void)
+	new_handler
+	get_new_handler(void)
 	{
 		return new_handl.load();
 	}
 }
-
 
 #if __cplusplus < 201103L
 #define NOEXCEPT throw()
@@ -87,34 +88,33 @@ namespace
 	 * return nullptr.  Catches any exception and converts it into a nullptr
 	 * return.
 	 */
-	template<void*(New)(size_t)>
+	template <void *(New)(size_t)>
 	void *noexcept_new(size_t size)
 	{
 #if !defined(_CXXRT_NO_EXCEPTIONS)
-	try
-	{
-		return New(size);
-	} catch (...)
-	{
-		// nothrow operator new should return NULL in case of
-		// std::bad_alloc exception in new handler
-		return nullptr;
-	}
+		try
+		{
+			return New(size);
+		}
+		catch (...)
+		{
+			// nothrow operator new should return NULL in case of
+			// std::bad_alloc exception in new handler
+			return nullptr;
+		}
 #else
-	return New(size);
+		return New(size);
 #endif
 	}
 }
 
-
-__attribute__((weak))
-void* operator new(size_t size) BADALLOC
+__attribute__((weak)) void *operator new(size_t size) BADALLOC
 {
 	if (0 == size)
 	{
 		size = 1;
 	}
-	void * mem = malloc(size);
+	void *mem = malloc(size);
 	while (0 == mem)
 	{
 		new_handler h = std::get_new_handler();
@@ -136,37 +136,27 @@ void* operator new(size_t size) BADALLOC
 	return mem;
 }
 
-
-__attribute__((weak))
-void* operator new(size_t size, const std::nothrow_t &) NOEXCEPT
+__attribute__((weak)) void *operator new(size_t size, const std::nothrow_t &) NOEXCEPT
 {
 	return noexcept_new<(::operator new)>(size);
 }
 
-
-__attribute__((weak))
-void operator delete(void * ptr) NOEXCEPT
+__attribute__((weak)) void operator delete(void *ptr)NOEXCEPT
 {
 	free(ptr);
 }
 
-
-__attribute__((weak))
-void * operator new[](size_t size) BADALLOC
+__attribute__((weak)) void *operator new[](size_t size) BADALLOC
 {
 	return ::operator new(size);
 }
 
-
-__attribute__((weak))
-void * operator new[](size_t size, const std::nothrow_t &) NOEXCEPT
+__attribute__((weak)) void *operator new[](size_t size, const std::nothrow_t &) NOEXCEPT
 {
 	return noexcept_new<(::operator new[])>(size);
 }
 
-
-__attribute__((weak))
-void operator delete[](void * ptr) NOEXCEPT
+__attribute__((weak)) void operator delete[](void *ptr) NOEXCEPT
 {
 	::operator delete(ptr);
 }
@@ -175,17 +165,28 @@ void operator delete[](void * ptr) NOEXCEPT
 
 #if __cplusplus >= 201402L
 
-__attribute__((weak))
-void operator delete(void * ptr, size_t) NOEXCEPT
+__attribute__((weak)) void operator delete(void *ptr, size_t)NOEXCEPT
 {
 	::operator delete(ptr);
 }
 
-
-__attribute__((weak))
-void operator delete[](void * ptr, size_t) NOEXCEPT
+__attribute__((weak)) void operator delete[](void *ptr, size_t) NOEXCEPT
 {
 	::operator delete(ptr);
 }
+
+// Default placement versions of operator new.
+void *operator new(size_t, void *__p) noexcept
+{
+	return __p;
+}
+void *operator new[](size_t, void *__p) noexcept
+{
+	return __p;
+}
+
+// Default placement versions of operator delete.
+void operator delete(void *, void *) noexcept {}
+void operator delete[](void *, void *) noexcept {}
 
 #endif

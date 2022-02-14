@@ -271,6 +271,21 @@ struct multiboot_apm_info
     multiboot_uint16_t dseg_len;
 };
 
+struct __attribute__((packed)) multiboot_drive_info
+{
+    enum {
+        DRIVE_CHS = 0,
+        DRIVE_LBA = 1
+    };
+    uint32_t size;
+    uint8_t number;
+    uint8_t mode;
+    uint8_t cylinders;
+    uint16_t heads;
+    uint8_t sectors;
+    char ports[];
+};
+
 #endif /* ! ASM_FILE */
 
 #endif /* ! MULTIBOOT_HEADER */

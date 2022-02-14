@@ -7,7 +7,9 @@
 #include "InputDevice.hpp"
 #include "OutputDevice.hpp"
 
-class SerialIOInitializeError : public std::exception {};
+class SerialIOInitializeError : public std::exception
+{
+};
 
 class SerialIODevice : virtual public OutputDevice, virtual public InputDevice
 {
@@ -16,13 +18,15 @@ class SerialIODevice : virtual public OutputDevice, virtual public InputDevice
 public:
     SerialIODevice(int port);
 
-    virtual int empty() override;
-    virtual int getc() override;
+    int empty();
+    int getc();
+    virtual int64_t read(void *buffer, size_t size);
 
     int is_transmit_empty();
 
     int putc0(char ch);
-    virtual int putc(char ch) override;
+    int putc(char ch);
+    virtual int64_t write(const void *data, size_t size) override;
 };
 
 #endif

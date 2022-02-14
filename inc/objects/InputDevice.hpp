@@ -7,8 +7,12 @@
 class InputDevice : virtual public Object
 {
 public:
-    virtual int getc() = 0;
-    virtual int empty() = 0;
+    // return -EAGAIN if there's no data
+    // if size == 0, check and return -EAGAIN if there's no data
+    virtual int64_t read(void *buffer, size_t size) = 0;
 };
+
+InputDevice* setDefaultInputDevice(InputDevice* device);
+InputDevice* getDefaultInputDevice();
 
 #endif

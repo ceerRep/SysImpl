@@ -2,11 +2,15 @@
 
 #define _object_hpp
 
+#include <shared_ptr.hpp>
+
 class Object
 {
-protected:
 public:
+    Object() = default;
+    Object(const Object &) = delete;
     virtual ~Object() = default;
+    virtual void onRemovedByOwner(Object *owner) {}
 };
 
 #endif

@@ -36,6 +36,7 @@
 #define _NEW
 
 #include <stdint.h>
+#include <stddef.h>
 
 #pragma GCC system_header
 

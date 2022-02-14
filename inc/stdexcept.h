@@ -29,6 +29,9 @@
  * of the exceptions for the runtime to use.  
  */
 
+#ifndef _std_except_h
+#define _std_except_h
+
 namespace std
 {
 
@@ -94,3 +97,4 @@ namespace std
 
 } // namespace std
 
+#endif

@@ -4,6 +4,6 @@
 
 #include <panic.h>
 
-#define assert(c) do { if (!(c)) panic(#c); } while(0)
+#define assert(c) do { if (!(c)) panic("Assertion failed: " #c); } while(0)
 
 #endif

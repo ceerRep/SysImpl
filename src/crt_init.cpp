@@ -15,6 +15,7 @@ extern "C"
 
     void crt_init()
     {
+        KERNEL_BOOT_STACK_PROTECTOR = 0x1919810;
         setKernelHeap(HeapInitialize(KERNEL_BOOT_HEAP_END - KERNEL_BOOT_HEAP_START, KERNEL_BOOT_HEAP_START));
 
         auto *device = new EarlyStageOutputDevice;
@@ -28,6 +29,9 @@ extern "C"
         int status;
         try
         {
+            for (auto p = __init_array_start; p != __init_array_end; p+=sizeof(uintptr_t))
+                (**(void (**)())p)();
+
             return main(magic, info_addr);
         }
         catch (std::exception &e)

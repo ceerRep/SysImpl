@@ -80,10 +80,10 @@ void __clear_cache(void *start, void *end) {
 // This value is stable at least since Linux 3.13 and should remain so for
 // compatibility reasons, warranting it's re-definition here.
 #define __ARM_NR_cacheflush 0x0f0002
-  register int start_reg __asm("r0") = (int)(intptr_t)start;
-  const register int end_reg __asm("r1") = (int)(intptr_t)end;
-  const register int flags __asm("r2") = 0;
-  const register int syscall_nr __asm("r7") = __ARM_NR_cacheflush;
+  register int start_reg __asm volatile("r0") = (int)(intptr_t)start;
+  const register int end_reg __asm volatile("r1") = (int)(intptr_t)end;
+  const register int flags __asm volatile("r2") = 0;
+  const register int syscall_nr __asm volatile("r7") = __ARM_NR_cacheflush;
   __asm __volatile("svc 0x0"
                    : "=r"(start_reg)
                    : "r"(syscall_nr), "r"(start_reg), "r"(end_reg), "r"(flags));
@@ -157,11 +157,11 @@ void __clear_cache(void *start, void *end) {
     __asm__ volatile("flush %0" : : "r"(dword));
 #elif defined(__riscv) && defined(__linux__)
   // See: arch/riscv/include/asm/cacheflush.h, arch/riscv/kernel/sys_riscv.c
-  register void *start_reg __asm("a0") = start;
-  const register void *end_reg __asm("a1") = end;
+  register void *start_reg __asm volatile("a0") = start;
+  const register void *end_reg __asm volatile("a1") = end;
   // "0" means that we clear cache for all threads (SYS_RISCV_FLUSH_ICACHE_ALL)
-  const register long flags __asm("a2") = 0;
-  const register long syscall_nr __asm("a7") = __NR_riscv_flush_icache;
+  const register long flags __asm volatile("a2") = 0;
+  const register long syscall_nr __asm volatile("a7") = __NR_riscv_flush_icache;
   __asm __volatile("ecall"
                    : "=r"(start_reg)
                    : "r"(start_reg), "r"(end_reg), "r"(flags), "r"(syscall_nr));

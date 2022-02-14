@@ -10,21 +10,29 @@ extern "C"
 #include <stdarg.h>
 #include <stddef.h>
 
-    extern void *defaultOutputDevice;
-
     extern void *stdin;
     extern void *stdout;
     extern void *stderr;
 
+// Make them happy
 #define stdin stdin
 #define stdout stdout
 #define stderr stderr
+
+#ifndef NULL
+#define NULL 0
+#endif
+
+#ifndef EOF
+#define EOF -1
+#endif
 
     int putchar(int c);
 
     int fputc(int c, void *device);
 
     int puts(const char *s);
+    int fputs(const char *s, void *device);
 
     int printf(const char *format, ...);
 

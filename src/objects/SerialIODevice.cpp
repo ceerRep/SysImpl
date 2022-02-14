@@ -1,6 +1,8 @@
 #include <objects/SerialIODevice.hpp>
 
 #include <io_port.h>
+#include <stdio.h>
+#include <errno.h>
 
 SerialIODevice::SerialIODevice(int port) : port(port)
 {
@@ -27,25 +29,45 @@ SerialIODevice::SerialIODevice(int port) : port(port)
 
 int SerialIODevice::empty()
 {
-    return inb(port + 5) & 1;
+    return !(inb(port + 5) & 1);
 }
 
 int SerialIODevice::getc()
 {
-    while (empty() == 0)
-        ;
+    if (empty())
+        return EOF;
 
     return inb(port);
 }
 
+int64_t SerialIODevice::read(void *buffer, size_t size)
+{
+    if (empty())
+        return -EAGAIN;
+    
+    char *cbuffer = (char *)buffer;
+
+    size_t i;
+    for (i = 0; i < size; i++)
+    {
+        int ch = getc();
+        if (ch != EOF)
+            cbuffer[i] = ch;
+        else
+            break;
+    }
+
+    return i;
+}
+
 int SerialIODevice::is_transmit_empty()
 {
-    return inb(port + 5) & 0x20;
+    return !(inb(port + 5) & 0x20);
 }
 
 int SerialIODevice::putc0(char ch)
 {
-    while (is_transmit_empty() == 0)
+    while (is_transmit_empty())
         ;
 
     outb(port, ch);
@@ -59,4 +81,11 @@ int SerialIODevice::putc(char ch)
         putc0('\r');
 
     return putc0(ch);
+}
+
+int64_t SerialIODevice::write(const void *data, size_t size)
+{
+    for (size_t i = 0; i < size; i++)
+        putc(((char *)data)[i]);
+    return size;
 }

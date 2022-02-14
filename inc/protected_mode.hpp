@@ -11,7 +11,9 @@ enum
     SEG_KERNEL_DATA,
     SEG_USER_CODE,
     SEG_USER_DATA,
-    SEG_GLOBAL_TSS,
+    SEG_INIT_TSS,
+    SEG_USER_TSS,
+    SEG_SYSCALL_TSS,
     SEG_V8086_TSS,
     GDT_ENTRY_NUM
 };
@@ -107,5 +109,61 @@ uint32_t v8086_call(void *func,
                     uint16_t di,
                     uint16_t ds,
                     uint16_t es);
+
+void idt_set_descriptor(uint8_t vector, unsigned int segsel, void *isr, unsigned int present, unsigned int dpl, unsigned int type);
+
+#define SEGMENT_SELECTOR(seg_id, local, rpl) (((seg_id) << 3) + ((local) << 2) + (rpl))
+
+// when exception in v8086 occured, cpu will turn into ring 0 and clear ds, es, fs, gs
+// so declare it in every exception handler
+
+class SegmentRegsSetter
+{
+    uint16_t _set_segment_regs_ds, _set_segment_regs_es, _set_segment_regs_fs, _set_segment_regs_gs;
+
+public:
+    SegmentRegsSetter()
+    {
+        volatile uint16_t ds, es, fs, gs;
+        asm volatile("mov %%ds, %%ax"
+                     : "=a"(ds)::"memory", "cc");
+        asm volatile("mov %%es, %%ax"
+                     : "=a"(es)::"memory", "cc");
+        asm volatile("mov %%fs, %%ax"
+                     : "=a"(fs)::"memory", "cc");
+        asm volatile("mov %%gs, %%ax"
+                     : "=a"(gs)::"memory", "cc");
+        asm volatile("mov %%ax, %%ds\n\t"
+                     "mov %%ax, %%es\n\t"
+                     "mov %%ax, %%fs\n\t"
+                     "mov %%ax, %%gs\n\t"
+                     :
+                     : "a"(SEGMENT_SELECTOR(SEG_KERNEL_DATA, 0, 0))
+                     : "memory", "cc");
+        _set_segment_regs_ds = ds;
+        _set_segment_regs_es = es;
+        _set_segment_regs_fs = fs;
+        _set_segment_regs_gs = gs;
+    }
+    ~SegmentRegsSetter()
+    {
+        volatile uint16_t ds, es, fs, gs;
+        ds = _set_segment_regs_ds;
+        es = _set_segment_regs_es;
+        fs = _set_segment_regs_fs;
+        gs = _set_segment_regs_gs;
+        asm volatile("mov %%ax, %%ds" ::"a"(ds)
+                     : "memory", "cc");
+        asm volatile("mov %%ax, %%es" ::"a"(es)
+                     : "memory", "cc");
+        asm volatile("mov %%ax, %%fs" ::"a"(fs)
+                     : "memory", "cc");
+        asm volatile("mov %%ax, %%gs" ::"a"(gs)
+                     : "memory", "cc");
+    }
+};
+
+extern tss_entry_struct_t **tss_array;
+extern gdt_entry_bits_t *gdts;
 
 #endif

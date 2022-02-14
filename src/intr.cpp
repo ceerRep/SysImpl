@@ -1,7 +1,7 @@
 #include <panic.h>
+#include <protected_mode.hpp>
 #include <stdint.h>
 #include <stdio.h>
-#include <protected_mode.hpp>
 
 typedef struct
 {
@@ -75,20 +75,10 @@ exception_info exception_infos[] = {
     {"Security Exception", 30, true},
     {"Reserved", 31, false}};
 
-static inline void set_segment_regs()
-{
-    asm("mov %%ax, %%ds\n\t"
-        "mov %%ax, %%es\n\t"
-        "mov %%ax, %%fs\n\t"
-        "mov %%ax, %%gs\n\t"
-        :
-        : "a"(SEG_KERNEL_DATA << 3));
-}
-
 template <int N>
 __attribute__((interrupt)) void trap_handler(interrupt_frame *frame)
 {
-    set_segment_regs();
+    SegmentRegsSetter setter;
     fprintf(stderr, "Exception %s(%d) occured\n", N < 32 ? exception_infos[N].name : "Unknown", N);
     fprintf(stderr, "CS: %08x\nIP: %08x\nEFLAGS: %08x\nESP: %08x\nSS: %08x\n",
             frame->cs,
@@ -102,7 +92,7 @@ __attribute__((interrupt)) void trap_handler(interrupt_frame *frame)
 template <int N>
 __attribute__((interrupt)) void trap_handler_with_error_code(interrupt_frame *frame, uint32_t error_code)
 {
-    set_segment_regs();
+    SegmentRegsSetter setter;
     fprintf(stderr, "Exception %s(%d) with error code %x occured\n", N < 32 ? exception_infos[N].name : "Unknown", N, error_code);
     fprintf(stderr, "CS: %08x\nIP: %08x\nEFLAGS: %08x\nESP: %08x\nSS: %08x\n",
             frame->cs,
@@ -115,7 +105,7 @@ __attribute__((interrupt)) void trap_handler_with_error_code(interrupt_frame *fr
 
 __attribute__((interrupt)) void gp_handler(interrupt_frame *frame, uint32_t error_code)
 {
-    set_segment_regs();
+    SegmentRegsSetter setter;
     void v8086_gp_handler(interrupt_frame * frame);
 
     if (frame->eflags & 0x20000) // VM flag
@@ -124,13 +114,14 @@ __attribute__((interrupt)) void gp_handler(interrupt_frame *frame, uint32_t erro
         return;
     }
 
+    fprintf(stderr, "Exception %s(%d) with error code %x occured\n", 13 < 32 ? exception_infos[13].name : "Unknown", 13, error_code);
     fprintf(stderr, "CS: %08x\nIP: %08x\nEFLAGS: %08x\nESP: %08x\nSS: %08x\n",
             frame->cs,
             frame->eip,
             frame->eflags,
             frame->esp,
             frame->ss);
-    panic("GP occured");
+    panic("Exception occured");
 }
 
 void idt_set_descriptor(uint8_t vector, unsigned int segsel, void *isr, unsigned int present, unsigned int dpl, unsigned int type)
@@ -138,7 +129,7 @@ void idt_set_descriptor(uint8_t vector, unsigned int segsel, void *isr, unsigned
     idt_entry_t *descriptor = &idt[vector];
 
     descriptor->isr_low = (uint32_t)isr & 0xFFFF;
-    descriptor->kernel_cs = segsel << 3; // this value can be whatever offset your kernel code selector is in your GDT
+    descriptor->kernel_cs = segsel; // this value can be whatever offset your kernel code selector is in your GDT
     descriptor->attributes_fields.dpl = dpl;
     descriptor->attributes_fields.present = present;
     descriptor->attributes_fields.type = type;
@@ -153,9 +144,9 @@ struct SetDefaultISR
     static void set()
     {
         if (N < 32 && exception_infos[N].error_code)
-            idt_set_descriptor(N, SEG_KERNEL_CODE, (void *)(void (*)(interrupt_frame * frame, uint32_t error_code)) trap_handler_with_error_code<N>, 1, 0, IDT_INTERRUPT_32);
+            idt_set_descriptor(N, SEGMENT_SELECTOR(SEG_KERNEL_CODE, 0, 0), (void *)(void (*)(interrupt_frame * frame, uint32_t error_code)) trap_handler_with_error_code<N>, 1, 0, IDT_INTERRUPT_32);
         else
-            idt_set_descriptor(N, SEG_KERNEL_CODE, (void *)(void (*)(interrupt_frame * frame)) trap_handler<N>, 1, 0, IDT_INTERRUPT_32);
+            idt_set_descriptor(N, SEGMENT_SELECTOR(SEG_KERNEL_CODE, 0, 0), (void *)(void (*)(interrupt_frame * frame)) trap_handler<N>, 1, 0, IDT_INTERRUPT_32);
         SetDefaultISR<N - 1>::set();
     }
 };
@@ -165,7 +156,7 @@ struct SetDefaultISR<0>
 {
     static void set()
     {
-        idt_set_descriptor(0, SEG_KERNEL_CODE, (void *)(void (*)(interrupt_frame * frame)) trap_handler<0>, 1, 0, IDT_INTERRUPT_32);
+        idt_set_descriptor(0, SEGMENT_SELECTOR(SEG_KERNEL_CODE, 0, 0), (void *)(void (*)(interrupt_frame * frame)) trap_handler<0>, 1, 0, IDT_INTERRUPT_32);
     }
 };
 
@@ -173,7 +164,8 @@ void initialize_intr()
 {
     SetDefaultISR<255>::set();
 
-    idt_set_descriptor(13, SEG_KERNEL_CODE, (void *)gp_handler, 1, 0, IDT_INTERRUPT_32);
+    idt_set_descriptor(13, SEGMENT_SELECTOR(SEG_KERNEL_CODE, 0, 0), (void *)gp_handler, 1, 0, IDT_INTERRUPT_32);
+    idt_set_descriptor(0x80, SEGMENT_SELECTOR(SEG_SYSCALL_TSS, 0, 0), nullptr, 1, 3, IDT_TASK);
 
     idtr.base = (uintptr_t)&idt[0];
     idtr.limit = (uint16_t)sizeof(idt) - 1;
@@ -181,5 +173,5 @@ void initialize_intr()
                      :
                      : "m"(idtr)); // load the new IDT
 
-    // asm("sti");
+    // asm volatile("sti");
 }

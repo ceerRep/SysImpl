@@ -13,6 +13,12 @@
         "panic.h": "c",
         "ctype.h": "c",
         "stdio.h": "c",
-        "fp_lib.h": "c"
+        "fp_lib.h": "c",
+        "*.inc": "cpp",
+        "type_traits": "cpp",
+        "align_util.h": "c",
+        "syscall.hpp": "c",
+        "syscall.h": "c",
+        "stdint.h": "c"
     }
 }

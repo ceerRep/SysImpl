@@ -9,16 +9,13 @@
 class OutputDevice : virtual public Object
 {
 public:
-    virtual int putc(char ch) = 0;
-
-    int write(void *data, size_t size);
-
-    int puts(const char *str);
-
-    int printf(const char *fmt, ...);
+    virtual int64_t write(const void *data, size_t size) = 0;
 };
 
 OutputDevice *setDefaultOutputDevice(OutputDevice *output);
 OutputDevice *setErrorOutputDevice(OutputDevice *output);
+
+OutputDevice *getDefaultOutputDevice();
+OutputDevice *getErrorOutputDevice();
 
 #endif

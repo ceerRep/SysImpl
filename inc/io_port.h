@@ -20,6 +20,11 @@ extern "C"
          * %1 expands to %dx because  port  is a uint16_t.  %w1 could be used if we had the port number a wider C type */
     }
 
+    static inline void io_wait(void)
+    {
+        outb(0x80, 0);
+    }
+
     static inline uint8_t inb(uint16_t port)
     {
         uint8_t ret;
@@ -27,6 +32,30 @@ extern "C"
                      : "=a"(ret)
                      : "Nd"(port));
         return ret;
+    }
+
+    static inline void cpuid(int code, uint32_t *a, uint32_t *d)
+    {
+        asm volatile("cpuid"
+                     : "=a"(*a), "=d"(*d)
+                     : "0"(code)
+                     : "ebx", "ecx");
+    }
+
+    static inline void wrmsr(uint32_t msr_id, uint64_t msr_value)
+    {
+        asm volatile("wrmsr"
+                     :
+                     : "c"(msr_id), "A"(msr_value));
+    }
+
+    static inline uint64_t rdmsr(uint32_t msr_id)
+    {
+        uint64_t msr_value;
+        asm volatile("rdmsr"
+                     : "=A"(msr_value)
+                     : "c"(msr_id));
+        return msr_value;
     }
 
 #ifdef __cplusplus

@@ -20,7 +20,7 @@ typedef struct HeapNode
 typedef struct HeapInfo
 {
     uintptr_t heapSize;
-    HeapNode_t *fistAvail;
+    HeapNode_t *firstAvail;
 } HeapInfo_t;
 
 HANDLE HeapInitialize(uintptr_t size, void *heapMem)
@@ -33,7 +33,7 @@ HANDLE HeapInitialize(uintptr_t size, void *heapMem)
     first = (void *)ALIGN_CEIL(first, 8);
 
     info->heapSize = size;
-    info->fistAvail = first;
+    info->firstAvail = first;
 
     first->size = heapMem + size - (void *)first;
     first->free = AVAIL_MAGIC;
@@ -49,7 +49,7 @@ void *HeapAlloc(HANDLE hHeap, uintptr_t size)
     HeapInfo_t *heap = hHeap;
     size = ALIGN_CEIL(size, 8) + offsetof(HeapNode_t, payload);
 
-    for (HeapNode_t *now = heap->fistAvail, *prev = NULL; now; prev = now, now = now->next)
+    for (HeapNode_t *now = heap->firstAvail, *prev = NULL; now; prev = now, now = now->next)
     {
         if (now->free != AVAIL_MAGIC)
             panic("Unexpected magic at heapalloc");
@@ -78,7 +78,7 @@ void *HeapAlloc(HANDLE hHeap, uintptr_t size)
             }
             else
             {
-                heap->fistAvail = next;
+                heap->firstAvail = next;
             }
             now->free = (uintptr_t)hHeap;
             return now->payload;
@@ -101,7 +101,7 @@ void HeapFree(void *mem)
     HeapInfo_t *heap = (HeapInfo_t *)(node->free);
     node->free = AVAIL_MAGIC;
 
-    for (HeapNode_t *now = heap->fistAvail, *prev = NULL, **ppnow = &heap->fistAvail;
+    for (HeapNode_t *now = heap->firstAvail, *prev = NULL, **ppnow = &heap->firstAvail;
          now || ppnow;
          ppnow = now ? &now->next : NULL, prev = now, now = now ? now->next : NULL)
     {
@@ -123,7 +123,7 @@ void HeapFree(void *mem)
             }
             else
             {
-                heap->fistAvail = node;
+                heap->firstAvail = node;
             }
 
             // Normally it's true -> now > node -> now is not NULL

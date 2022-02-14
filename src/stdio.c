@@ -2,14 +2,13 @@
 
 int puts(const char *str)
 {
-    int i;
-    for (i = 0; str[i]; i++)
+    int ret;
+    if ((ret = fputs(str, stdout)) >= 0)
     {
-        char ch = str[i];
-        if (putchar(ch) != ch)
-            return -i;
+        putchar('\n');
+        ret++;
     }
-    return i;
+    return ret;
 }
 
 int printf(const char *format, ...)
@@ -47,8 +46,7 @@ int vfprintf(void *device, const char *format, va_list ap)
     if (rv > 128 - 1)
         rv = 128 - 1;
 
-    for (int i = 0; i < rv; i++)
-        fputc(buffer[i], device);
+    rv = fputs(buffer, device);
 
     return rv;
 }

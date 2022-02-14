@@ -2,11 +2,13 @@
 
 #define _vgabaseoutputdevice_hpp
 
+#include "8086.h"
 #include <protected_mode.hpp>
 
 #include "OutputDevice.hpp"
+#include "EarlyStageOutputDevice.hpp"
 
-class VGABaseOutputDevice : public virtual OutputDevice
+class VGABaseOutputDevice : public virtual EarlyStageOutputDevice
 {
     char *cursor;
 
@@ -28,12 +30,25 @@ public:
         return ch;
     }
 
-    virtual int putc(char ch) override
+    virtual int64_t write(const void *data, size_t size) override
     {
-        if (ch == '\n')
-            putc0('\r');
+        if (gdts[SEG_V8086_TSS].read_write) // v8086 tss is busy, fallback
+        {
+            return EarlyStageOutputDevice::write(data, size);
+        }
+        else
+        {
+            const char *cdata = (const char *)data;
 
-        return putc0(ch);
+            for (size_t i = 0; i < size; i++)
+            {
+                if (cdata[i] == '\n')
+                    putc0('\r');
+                putc0(cdata[i]);
+            }
+
+            return size;
+        }
     }
 };
 

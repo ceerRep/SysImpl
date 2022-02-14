@@ -1,6 +1,6 @@
-#include <string.h>
 #include <panic.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <protected_mode.hpp>
 
@@ -30,12 +30,13 @@ void v8086_gp_handler(interrupt_frame *frame)
     {
     case 0xF4: // hlt
         // Exit v8086 mode
-        asm("pushfl\n\t"
-            "popl %eax\n\t"
-            "orl $0x4000, %eax\n\t" // NT flag, let "iret" return to caller task
-            "pushl %eax\n\t"
-            "popfl\n\t"
-            "iret\n\t");
+        asm volatile("pushfl\n\t"
+                     "popl %%eax\n\t"
+                     "orl $0x4000, %%eax\n\t" // NT flag, let "iret" return to caller task
+                     "pushl %%eax\n\t"
+                     "popfl\n\t"
+                     "iret\n\t" ::
+                         : "memory", "cc");
 
         return;
 
@@ -84,21 +85,20 @@ uint32_t v8086_call(void *func,
 {
     tss_entry_struct_with_io_t &v8086_tss = *(tss_entry_struct_with_io_t *)tss_array[SEG_V8086_TSS];
     v8086_tss.io[sizeof(v8086_tss.io) - 1] = 0xFF;
-    v8086_tss.tss.esp0 = v8086_tss.tss.esp2;
     v8086_tss.tss.prev_tss = 0;
-    asm("movl %%cr3, %%eax\n\t"
-        : "=a"(v8086_tss.tss.cr3)
-        :
-        :);
+    asm volatile("movl %%cr3, %%eax\n\t"
+                 : "=a"(v8086_tss.tss.cr3)
+                 :
+                 : "memory", "cc");
 
-    // disable interrupt, enable v8086, set IOPL=3
-    asm("pushfl\n\t"
-        "pop %%eax\n\t"
-        "andl $0xfffffdff, %%eax\n\t"
-        "orl  $0x23000, %%eax"
-        : "=a"(v8086_tss.tss.eflags)
-        :
-        :);
+    // /* disable interrupt, */ enable v8086, set IOPL=3
+    asm volatile("pushfl\n\t"
+                 "pop %%eax\n\t"
+                 // "andl $0xfffffdff, %%eax\n\t"
+                 "orl  $0x23000, %%eax"
+                 : "=a"(v8086_tss.tss.eflags)
+                 :
+                 : "memory", "cc");
 
     v8086_tss.tss.cs = 0;
     v8086_tss.tss.eip = (uintptr_t)((char *)func - code16_source_start + CODE16);
@@ -129,13 +129,13 @@ uint32_t v8086_call(void *func,
         uint32_t seg;
     } lcall_target;
 
-    lcall_target.seg = SEG_V8086_TSS << 3;
+    lcall_target.seg = SEGMENT_SELECTOR(SEG_V8086_TSS, 0, 0);
     lcall_target.addr = 0; // UNUSED
 
-    asm("lcall *%0"
-        :
-        : "m"(lcall_target)
-        :);
+    asm volatile("lcall *%0"
+                 :
+                 : "m"(lcall_target)
+                 : "memory", "cc");
 
     return v8086_tss.tss.eax;
 }

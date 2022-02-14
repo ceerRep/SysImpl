@@ -14,19 +14,22 @@ class EarlyStageOutputDevice : public virtual OutputDevice
 public:
     EarlyStageOutputDevice() : cursor(VGA_TEXT_BASE) {}
 
-    virtual int putc(char ch) override
+    virtual int64_t write(const void *data, size_t size) override
     {
-        while (cursor >= VGA_TEXT_BASE + 80 * 25 * 2)
+        for (size_t i = 0; i < size; i++)
         {
-            memcpy(VGA_TEXT_BASE, VGA_TEXT_BASE + 2 * 80, 80 * 24 * 2);
-            memset(VGA_TEXT_BASE + 80 * 24 * 2, 0, 80 * 2);
-            cursor -= 80 * 2;
+            auto ch = ((char *)data)[i];
+            while (cursor >= VGA_TEXT_BASE + 80 * 25 * 2)
+            {
+                memcpy(VGA_TEXT_BASE, VGA_TEXT_BASE + 2 * 80, 80 * 24 * 2);
+                memset(VGA_TEXT_BASE + 80 * 24 * 2, 0, 80 * 2);
+                cursor -= 80 * 2;
+            }
+
+            *(cursor++) = ch;
+            *(cursor++) = 0x04;
         }
-
-        *(cursor++) = ch;
-        *(cursor++) = 0x04;
-
-        return ch;
+        return size;
     }
 };
 

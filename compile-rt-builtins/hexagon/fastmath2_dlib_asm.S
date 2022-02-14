@@ -8,7 +8,7 @@
 /* ==================================================================== */
 /*   FUNCTIONS Optimized double floating point operators                */
 /* ==================================================================== */
-/*      c = dadd_asm(a, b)                                              */
+/*      c = dadd_asm volatile(a, b)                                              */
 /* ==================================================================== *
 fast2_QDOUBLE fast2_dadd(fast2_QDOUBLE a,fast2_QDOUBLE b) {
       fast2_QDOUBLE c;

@@ -32,9 +32,9 @@
  * SUCH DAMAGE.
  */
 
-#include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 void *memset(void *b, int c, uintptr_t len)
 {
@@ -70,6 +70,7 @@ void *memcpy(void *dst, const void *src, uintptr_t n)
 
     return dst;
 }
+
 size_t strlen(const char *s)
 {
     size_t cnt = 0;
@@ -112,6 +113,39 @@ int strncmp(const char *s1, const char *s2, size_t n)
     return (0);
 }
 
+int strcasecmp(const char *s1, const char *s2)
+{
+    const uint8_t *us1 = (const uint8_t *)s1, *us2 = (const uint8_t *)s2;
+
+    while (tolower(*us1) == tolower(*us2))
+    {
+        if (*us1++ == '\0')
+            return (0);
+        us2++;
+    }
+    return (tolower(*us1) - tolower(*us2));
+}
+
+int strncasecmp(const char *s1, const char *s2, size_t n)
+{
+
+    if (n != 0)
+    {
+        const uint8_t *us1 = (const uint8_t *)s1;
+        const uint8_t *us2 = (const uint8_t *)s2;
+
+        do
+        {
+            if (tolower(*us1) != tolower(*us2))
+                return (tolower(*us1) - tolower(*us2));
+            if (*us1++ == '\0')
+                break;
+            us2++;
+        } while (--n != 0);
+    }
+    return (0);
+}
+
 char *strdup(const char *s1)
 {
     size_t len = strlen(s1) + 1;
@@ -139,6 +173,53 @@ char *strstr(const char *s, const char *find)
         s--;
     }
     return ((char *)s);
+}
+
+char *(strcpy)(char *to, const char *from)
+{
+    char *save = to;
+
+    for (; (*to = *from) != 0; ++from, ++to)
+        ;
+    return (save);
+}
+
+size_t strlcpy(char *dst, const char *src, size_t dsize)
+{
+    const char *osrc = src;
+    size_t nleft = dsize;
+
+    /* Copy as many bytes as will fit. */
+    if (nleft != 0)
+    {
+        while (--nleft != 0)
+        {
+            if ((*dst++ = *src++) == '\0')
+                break;
+        }
+    }
+
+    /* Not enough room in dst, add NUL and traverse rest of src. */
+    if (nleft == 0)
+    {
+        if (dsize != 0)
+            *dst = '\0'; /* NUL-terminate dst */
+        while (*src++)
+            ;
+    }
+
+    return (src - osrc - 1); /* count does not include NUL */
+}
+
+char *strcat(char *s, const char *append)
+{
+    char *save = s;
+
+    for (; *s; ++s)
+        ;
+    while ((*s++ = *append++) != 0)
+        ;
+    return (save);
 }
 
 long strtol(const char *nptr, char **endptr, int base)
