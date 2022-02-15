@@ -1,9 +1,12 @@
+#include <assert.h>
+#include <cxxabi.h>
 #include <heap.h>
 #include <ld_syms.h>
+#include <multiboot.h>
+#include <new>
+#include <stdexcept.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cxxabi.h>
-#include <stdexcept.h>
 #include <typeinfo.h>
 
 #include <objects/EarlyStageOutputDevice.hpp>
@@ -11,28 +14,38 @@
 extern "C"
 {
     void _init();
-    int main(uint32_t magic, uint32_t info_addr);
+    int main();
 
-    void crt_init()
+    multiboot_info_t mbi_info;
+    char kernel_cmdline[512];
+    EarlyStageOutputDevice early_output;
+
+    void crt_init(uint32_t magic, uint32_t info_addr)
     {
         KERNEL_BOOT_STACK_PROTECTOR = 0x1919810;
-        setKernelHeap(HeapInitialize(KERNEL_BOOT_HEAP_END - KERNEL_BOOT_HEAP_START, KERNEL_BOOT_HEAP_START));
 
-        auto *device = new EarlyStageOutputDevice;
-        setDefaultOutputDevice(device);
-        setErrorOutputDevice(device);
+        new (&early_output) EarlyStageOutputDevice;
+        setDefaultOutputDevice(&early_output);
+        setErrorOutputDevice(&early_output);
+
+        assert(magic == 0x2BADB002);
+
+        mbi_info = *(multiboot_info *)info_addr;
+        strlcpy(kernel_cmdline, (char *)mbi_info.cmdline, 512);
+
+        setKernelHeap(HeapInitialize(KERNEL_BOOT_HEAP_END - KERNEL_BOOT_HEAP_START, KERNEL_BOOT_HEAP_START));
         printf("CRT initialized...\n");
     }
 
-    int enter_main(uint32_t magic, uint32_t info_addr)
+    int enter_main()
     {
         int status;
         try
         {
-            for (auto p = __init_array_start; p != __init_array_end; p+=sizeof(uintptr_t))
+            for (auto p = __init_array_start; p != __init_array_end; p += sizeof(uintptr_t))
                 (**(void (**)())p)();
 
-            return main(magic, info_addr);
+            return main();
         }
         catch (std::exception &e)
         {

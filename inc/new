@@ -35,8 +35,8 @@
 #ifndef _NEW
 #define _NEW
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #pragma GCC system_header
 
@@ -56,16 +56,16 @@ extern "C++"
      *  Placement new and delete signatures (take a memory address argument,
      *  does nothing) may not be replaced by a user's program.
      */
-    void *operator new(uintptr_t size) noexcept;
-    void *operator new[](uintptr_t size) noexcept;
+    void *operator new(size_t size) noexcept;
+    void *operator new[](size_t size) noexcept;
     void operator delete(void *ptr) noexcept;
     void operator delete[](void *ptr) noexcept;
     void operator delete(void *ptr, size_t sz) noexcept;
     void operator delete[](void *ptr, size_t sz) noexcept;
 
     // Default placement versions of operator new.
-    inline void *operator new(uintptr_t, void *__p) noexcept;
-    inline void *operator new[](uintptr_t, void *__p) noexcept;
+    inline void *operator new(size_t, void *__p) noexcept;
+    inline void *operator new[](size_t, void *__p) noexcept;
 
     // Default placement versions of operator delete.
     inline void operator delete(void *, void *) noexcept;

@@ -30,6 +30,7 @@ start:
 	push %ebx
 	push %eax
 	call crt_init
+	add $8, %esp
 	call _init
     call enter_main
 	push $aSysHalt

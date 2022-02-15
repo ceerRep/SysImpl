@@ -239,10 +239,9 @@ void Process::restoreStack()
     }
 }
 
-void Process::resume()
+void Process::run()
 {
     setProcessState(PROCESS_STATE_RUNNABLE);
-    *tss_array[SEG_USER_TSS] = usermode_state;
     current_process = pid;
 }
 

@@ -24,53 +24,21 @@
 #include <objects/SerialIODevice.hpp>
 #include <objects/VGATextOutputDevice.hpp>
 
-extern "C" void check_disable_apic();
-
-void enter_init(char *init_path, char **args)
+extern "C"
 {
-
-    auto init_process = new Process(nullptr);
-
-    if (getDefaultInputDevice())
-        init_process->setObject(0, shared_ptr<Object>(getDefaultInputDevice(), nullptr));
-    if (getDefaultOutputDevice())
-        init_process->setObject(1, shared_ptr<Object>(getDefaultOutputDevice(), nullptr));
-    if (getErrorOutputDevice())
-        init_process->setObject(2, shared_ptr<Object>(getErrorOutputDevice(), nullptr));
-
-    assert("Init process start failed" && !execv(init_process, init_path, args));
-
-    init_process->resume();
-
-    struct __attribute__((packed))
-    {
-        uint32_t addr;
-        uint32_t seg;
-    } ljmp_target;
-
-    ljmp_target.seg = SEGMENT_SELECTOR(SEG_USER_TSS, 0, 3);
-    ljmp_target.addr = 0; // UNUSED
-
-    asm volatile("ljmp *%0"
-                 :
-                 : "m"(ljmp_target)
-                 : "memory", "cc");
+    extern multiboot_info_t mbi_info;
+    extern char kernel_cmdline[512];
+    void check_disable_apic();
 }
+
+void enter_init(char *init_path, char **args);
+void parse_cmdline(char *cmdline, char *&init_path, char **args);
 
 extern "C"
 {
-    void _init();
-    extern char KERNEL_BOOT_HEAP_START[0], KERNEL_BOOT_HEAP_END[0];
 
-    int main(uint32_t magic, uint32_t info_addr)
+    int main()
     {
-        char cmdline[512];
-
-        {
-            multiboot_info *mbi = (multiboot_info *)info_addr;
-            strlcpy(cmdline, (char *)mbi->cmdline, 512);
-        }
-
         initialize_gdt();
         initialize_intr();
         PIC_remap(IRQ_BASE0, IRQ_BASE1);
@@ -101,7 +69,6 @@ extern "C"
         // {
         //     printf("Error initializing serial io: %s\n", e.what());
         // }
-        printf("%08x %08x\n", magic, info_addr);
 
         v8086_init();
         setDefaultOutputDevice(new VGABaseOutputDevice);
@@ -117,106 +84,30 @@ extern "C"
         uint8_t boot_device[4];
 
 #define CHECK_FLAG(flags, bit) ((flags) & (1 << (bit)))
+
+        assert("Multiboot info doesn't have memory info" && CHECK_FLAG(mbi_info.flags, 0));
+        mem_upper = (char *)ALIGN_FLOOR(mbi_info.mem_upper * 1024, 8192);
+
+        assert("Multiboot info doesn't have boot disk info" && CHECK_FLAG(mbi_info.flags, 1));
+        boot_device[0] = mbi_info.boot_device >> 24;
+        boot_device[1] = mbi_info.boot_device >> 16;
+        boot_device[2] = mbi_info.boot_device >> 8;
+        boot_device[3] = mbi_info.boot_device;
+
+        printf("Booted from drive 0x%02x", boot_device[0]);
+
+        for (int i = 1; i < 4; i++)
         {
-            multiboot_info *mbi = (multiboot_info *)info_addr;
-
-            assert("Multiboot info doesn't have memory info" && CHECK_FLAG(mbi->flags, 0));
-            mem_upper = (char *)ALIGN_FLOOR(mbi->mem_upper * 1024, 8192);
-
-            assert("Multiboot info doesn't have boot disk info" && CHECK_FLAG(mbi->flags, 1));
-            boot_device[0] = mbi->boot_device >> 24;
-            boot_device[1] = mbi->boot_device >> 16;
-            boot_device[2] = mbi->boot_device >> 8;
-            boot_device[3] = mbi->boot_device;
-
-            printf("Booted from drive 0x%02x", boot_device[0]);
-
-            for (int i = 1; i < 4; i++)
-            {
-                if (boot_device[i] != 0xff)
-                    printf(", sub part 0x%02x", boot_device[i]);
-                else
-                    break;
-            }
-            puts("");
-
-            char *now_start = cmdline;
-
-            printf("cmdline: %s\n", now_start);
-
-            bool begin_args = 0;
-            int now_arg_ind = 0;
-            char *now_end;
-
-            // find the last param
-
-            while (*now_start && *now_start == ' ')
-                *(now_start++) = 0;
-
-            for (;;)
-            {
-                now_end = now_start;
-                while (*now_end && *now_end != ' ')
-                    now_end++;
-
-                if (*now_end == '\0')
-                {
-                    if (!begin_args && !strcmp(now_start, "--"))
-                    {
-                        begin_args = 1;
-                        args[now_arg_ind++] = init_path;
-                    }
-                    else
-                    {
-                        if (begin_args)
-                        {
-                            if (now_arg_ind < PROCESS_MAX_ARGUMENTS)
-                                args[now_arg_ind++] = now_start;
-                        }
-                        else
-                        {
-                            init_path = now_start;
-                        }
-                    }
-
-                    break;
-                }
-
-                char *next = now_end;
-
-                while (*next && *next == ' ')
-                    *(next++) = 0;
-
-                if (!begin_args && !strcmp(now_start, "--"))
-                {
-                    begin_args = 1;
-                    args[now_arg_ind++] = init_path;
-                }
-                else
-                {
-                    if (begin_args)
-                    {
-                        if (now_arg_ind < PROCESS_MAX_ARGUMENTS)
-                            args[now_arg_ind++] = now_start;
-                    }
-                    else
-                    {
-                        init_path = now_start;
-                    }
-                }
-
-                if (*next)
-                    now_start = next;
-                else
-                    break;
-            }
-
-            if (!begin_args)
-            {
-                args[now_arg_ind++] = init_path;
-            }
+            if (boot_device[i] != 0xff)
+                printf(", sub part 0x%02x", boot_device[i]);
+            else
+                break;
         }
+        puts("");
 #undef CHECK_FLAG
+
+        printf("cmdline: %s\n", kernel_cmdline);
+        parse_cmdline(kernel_cmdline, init_path, args);
 
         setKernelHeap(HeapInitialize(USER_SPACE_START - _end, _end));
         // Align to 4096
@@ -231,5 +122,114 @@ extern "C"
         enter_init(init_path, args);
 
         return 0;
+    }
+}
+
+void enter_init(char *init_path, char **args)
+{
+
+    auto init_process = new Process(nullptr);
+
+    if (getDefaultInputDevice())
+        init_process->setObject(0, shared_ptr<Object>(getDefaultInputDevice(), nullptr));
+    if (getDefaultOutputDevice())
+        init_process->setObject(1, shared_ptr<Object>(getDefaultOutputDevice(), nullptr));
+    if (getErrorOutputDevice())
+        init_process->setObject(2, shared_ptr<Object>(getErrorOutputDevice(), nullptr));
+
+    assert("Init process start failed" && !execv(init_process, init_path, args));
+
+    init_process->run();
+    Process::leaveKernelMode();
+
+    struct __attribute__((packed))
+    {
+        uint32_t addr;
+        uint32_t seg;
+    } ljmp_target;
+
+    ljmp_target.seg = SEGMENT_SELECTOR(SEG_USER_TSS, 0, 3);
+    ljmp_target.addr = 0; // UNUSED
+
+    asm volatile("ljmp *%0"
+                 :
+                 : "m"(ljmp_target)
+                 : "memory", "cc");
+}
+
+void parse_cmdline(char *cmdline, char *&init_path, char **args)
+{
+    char *now_start = cmdline;
+
+    bool begin_args = 0;
+    int now_arg_ind = 0;
+    char *now_end;
+
+    // find the last param
+
+    while (*now_start && *now_start == ' ')
+        *(now_start++) = 0;
+
+    for (;;)
+    {
+        now_end = now_start;
+        while (*now_end && *now_end != ' ')
+            now_end++;
+
+        if (*now_end == '\0')
+        {
+            if (!begin_args && !strcmp(now_start, "--"))
+            {
+                begin_args = 1;
+                args[now_arg_ind++] = init_path;
+            }
+            else
+            {
+                if (begin_args)
+                {
+                    if (now_arg_ind < PROCESS_MAX_ARGUMENTS)
+                        args[now_arg_ind++] = now_start;
+                }
+                else
+                {
+                    init_path = now_start;
+                }
+            }
+
+            break;
+        }
+
+        char *next = now_end;
+
+        while (*next && *next == ' ')
+            *(next++) = 0;
+
+        if (!begin_args && !strcmp(now_start, "--"))
+        {
+            begin_args = 1;
+            args[now_arg_ind++] = init_path;
+        }
+        else
+        {
+            if (begin_args)
+            {
+                if (now_arg_ind < PROCESS_MAX_ARGUMENTS)
+                    args[now_arg_ind++] = now_start;
+            }
+            else
+            {
+                init_path = now_start;
+            }
+        }
+
+        if (*next)
+            now_start = next;
+        else
+            break;
+    }
+
+    if (!begin_args)
+    {
+        args[now_arg_ind++] = init_path;
     }
 }

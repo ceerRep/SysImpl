@@ -148,7 +148,7 @@ public:
 
     void restoreStack();
 
-    void resume();
+    void run();
 
     // Called when parent process dies
     virtual void onRemovedByOwner(Object *owner) override;
