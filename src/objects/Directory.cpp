@@ -1,7 +1,7 @@
 #include <objects/Directory.hpp>
 
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <objects/FileSystem.hpp>
@@ -34,14 +34,25 @@ struct __attribute__((packed)) FileEntry
 };
 
 Directory::Directory(Fat16FileSystem *fs, uint32_t first_cluster)
-    : fs(fs), file(create_shared(File::createFileByCluster(fs, first_cluster, 0x7fffffff)))
+    : fs(fs), file(File::createFileByCluster(fs, first_cluster, FileStat{0, FileStat::F_DIR}))
 {
     init();
 }
 
 Directory::Directory(Fat16FileSystem *fs, uint32_t begin, uint32_t end)
-    : fs(fs), file(create_shared(File::createSequentialFile(fs->getDisk(), begin, end)))
+    : fs(fs), file(File::createSequentialFile(fs, begin, end))
 {
+    init();
+}
+
+Directory::Directory(Fat16FileSystem *fs, shared_ptr<File> file)
+    : fs(fs), file(file)
+{
+    if (file->stat().mode != FileStat::F_DIR)
+    {
+        throw InvalidFileModeException();
+    }
+
     init();
 }
 
@@ -50,18 +61,21 @@ void Directory::init()
     FileEntry entry;
 
     int count = 0;
+
+    file->seek(0, File::SEEK_SET);
+
     while (file->read(&entry, sizeof(entry)) == sizeof(entry))
     {
         if (*(char *)&entry == '\0')
             break;
 
-        if (!(entry.attr & FileEntry::VOLUME_ID))
+        if (!(entry.attr & FileEntry::VOLUME_ID || entry.attr & FileEntry::HIDDEN || entry.filename[0] == '\xe5' /* deleted */))
         {
             count++;
         }
     }
 
-    stats = create_shared(new FileStatEx[count]);
+    infos = create_shared(new FileInfoEx[count]);
 
     file->seek(0, File::SEEK_SET);
 
@@ -72,7 +86,7 @@ void Directory::init()
         if (*(char *)&entry == '\0')
             break;
 
-        if (!(entry.attr & FileEntry::VOLUME_ID))
+        if (!(entry.attr & FileEntry::VOLUME_ID || entry.attr & FileEntry::HIDDEN || entry.filename[0] == '\xe5' /* deleted */))
         {
             assert(count < file_num);
 
@@ -100,44 +114,42 @@ void Directory::init()
             }
             *(pos++) = 0;
 
-            strcpy(stats[count].filename, filename);
+            strcpy(infos[count].filename, filename);
 
-            if (entry.attr & FileEntry::DIRECTORY)
-                stats[count].directory = 1;
+            infos[count].directory = !!(entry.attr & FileEntry::DIRECTORY);
 
-            stats[count].size = entry.size;
-            stats[count].cluster = (entry.cluster_high << 16) + entry.cluster_low;
+            infos[count].size = entry.size;
+            infos[count].cluster = (entry.cluster_high << 16) + entry.cluster_low;
 
             count++;
         }
     }
 }
 
-File *Directory::openFile(const char *name)
+shared_ptr<File> Directory::openFile(const char *name)
 {
     for (int i = 0, end = file_num; i < end; i++)
     {
-        if (strcasecmp(stats[i].filename, name) == 0)
+        if (strcasecmp(infos[i].filename, name) == 0)
         {
-            return File::createFileByCluster(fs, stats[i].cluster, stats[i].size);
+            return File::createFileByCluster(fs, infos[i].cluster, FileStat{infos[i].size, (infos[i].directory ? FileStat::F_DIR : FileStat::F_REG)});
         }
     }
 
-    return nullptr;
+    return shared_ptr<File>();
 }
 
-Directory *Directory::openDirectory(const char *name)
+shared_ptr<Directory> Directory::fromFile(shared_ptr<File> dir)
 {
-    for (int i = 0, end = file_num; i < end; i++)
+    try
     {
-        if (strcasecmp(stats[i].filename, name) == 0)
-        {
-            if (!stats[i].directory)
-                return nullptr;
-            
-            return new Directory(fs, stats[i].cluster);
-        }
+        if (auto fs = dir->getFS(); fs == nullptr)
+            return nullptr;
+        else
+            return make_shared<Directory>(fs, dir);
     }
-
-    return nullptr;
+    catch (InvalidFileModeException)
+    {
+        return nullptr;
+    }
 }

@@ -15,6 +15,13 @@ typedef struct
     char buffer[PROCESS_RUNTIME_INFO_SIZE - PROCESS_MAX_ARGUMENTS];
 } process_runtime_info_t;
 
+typedef struct
+{
+    char filename[16];
+    uint32_t size;
+    uint32_t directory;
+} file_info_t;
+
 #endif
 
 #endif

@@ -18,7 +18,7 @@ struct BlockInputDeviceLimitExceededException : public std::exception
     }
 };
 
-class BlockInputDeviceWrapper : virtual public InputDevice
+class BlockInputDeviceWrapper : public virtual InputDevice
 {
     enum
     {
@@ -53,9 +53,9 @@ public:
 };
 
 template <typename Base>
-class BlockInputDeviceMixin : virtual public Base, virtual public BlockInputDeviceWrapper
+class BlockInputDeviceMixin : public Base
 {
-    struct BaseWrapper : virtual public InputDevice
+    struct BaseWrapper : public virtual InputDevice
     {
         BlockInputDeviceMixin<Base> *parent;
 
@@ -72,26 +72,25 @@ class BlockInputDeviceMixin : virtual public Base, virtual public BlockInputDevi
         }
     };
 
-    BaseWrapper wrapper;
+    shared_ptr<BlockInputDeviceWrapper> pwrapper;
 
 public:
     template <typename... Args>
     BlockInputDeviceMixin(Args &&...args)
-        : Base(std::forward<Args>(args)...),
-          BlockInputDeviceWrapper(shared_ptr<InputDevice>(&wrapper, nullptr)), // dummy shared ptr
-          wrapper{this}
+        : Base(std::forward<Args>(args)...)
     {
+        pwrapper = make_shared<BlockInputDeviceWrapper>(make_shared<BaseWrapper>(this).template cast<InputDevice>());
     }
 
     virtual int64_t read(void *buffer, size_t size) override
     {
-        return BlockInputDeviceWrapper::read(buffer, size);
+        return pwrapper->read(buffer, size);
     }
 
     virtual void onRemovedByOwner(Object *owner) override
     {
         // BlockInputDeviceWrapper::onRemovedByOwner will call Base::onRemovedByOwner
-        BlockInputDeviceWrapper::onRemovedByOwner(owner);
+        pwrapper->onRemovedByOwner(owner);
     }
 };
 

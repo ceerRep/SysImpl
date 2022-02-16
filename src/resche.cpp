@@ -6,12 +6,26 @@
 
 #include <objects/Process.hpp>
 
+#include <common_def.h>
 #include <syscall/syscall.hpp>
 
 static volatile int resche_counter = PROCESS_TICKS;
 
 void resche()
 {
+    for (int i = 1; i <= Process::MAX_PROCESS_NUM; i++)
+    {
+        Process *proc = Process::getProcess((Process::getCurrentProcess() + i) % Process::MAX_PROCESS_NUM);
+
+        if (proc && proc->getProcessState() == Process::PROCESS_STATE_RUNNABLE && proc->getProcessScheType() != Process::PROCESS_SCHE_IDLE)
+        {
+            Process::setCurrentProcess(proc->getPid());
+
+            resche_counter = PROCESS_TICKS;
+            return;
+        }
+    }
+
     for (int i = 1; i <= Process::MAX_PROCESS_NUM; i++)
     {
         Process *proc = Process::getProcess((Process::getCurrentProcess() + i) % Process::MAX_PROCESS_NUM);
@@ -35,6 +49,9 @@ void resche()
     tss_array[SEG_USER_TSS]->prev_tss = 0;
 
     tss_array[SEG_SYSCALL_TSS]->prev_tss = SEGMENT_SELECTOR(SEG_INIT_TSS, 0, 0);
+
+    asm volatile("iret" ::
+                     : "memory");
 }
 
 void resche_tick(interrupt_frame *frame)

@@ -5,7 +5,7 @@
 
 uint64_t exit_handler(uint32_t code)
 {
-    Process::dropProcess(Process::getCurrentProcess());
+    Process::deleteProcess(Process::getCurrentProcess(), code);
     return 0;
 }
 

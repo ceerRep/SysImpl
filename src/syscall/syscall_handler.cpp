@@ -4,8 +4,12 @@
 #include <objects/BlockInputDevice.hpp>
 #include <objects/OutputDevice.hpp>
 
+#include <cxxabi.h>
 #include <resche.hpp>
+#include <stdexcept.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <typeinfo.h>
 
 SyscallWrapperBase *syscall_wrappers[SYSCALL_END] = {0};
 
@@ -23,26 +27,53 @@ extern "C" void real_syscall_handler()
     // update tss
     Process::enterKernelMode();
 
-    auto pid = Process::getCurrentProcess();
-    auto now_proc = Process::getProcess(pid);
-    auto pstate = now_proc->getUsermodeState();
+    int status;
 
-    if (syscall_wrappers[pstate->*syscall_callsys])
+    try
     {
-        auto ret = syscall_wrappers[pstate->*syscall_callsys]->apply();
+        auto pid = Process::getCurrentProcess();
+        auto now_proc = Process::getProcess(pid);
+        auto pstate = now_proc->getUsermodeState();
 
-        BlockInputDeviceWrapper::checkAll();
-
-        if (Process::getProcess(pid)) // check whether it exits
+        if (syscall_wrappers[pstate->*syscall_callsys])
         {
-            syscall_set_retval(now_proc, ret);
+            auto ret = syscall_wrappers[pstate->*syscall_callsys]->apply();
 
-            // sleeped
-            if (now_proc->getProcessState() != Process::PROCESS_STATE_RUNNABLE)
+            BlockInputDeviceWrapper::checkAll();
+
+            if (Process::getProcess(pid)) // check whether it exits
+            {
+                syscall_set_retval(now_proc, ret);
+
+                // sleeped
+                if (now_proc->getProcessState() != Process::PROCESS_STATE_RUNNABLE)
+                    resche();
+            }
+            else
                 resche();
         }
-        else
-            resche();
+    }
+    catch (std::exception &e)
+    {
+        fprintf(stderr, "An exception of type: %s occured in syscall, what(): %s\n",
+                abi::__cxa_demangle(typeid(e).name(),
+                                    0,
+                                    0,
+                                    &status),
+                e.what());
+
+        abort();
+    }
+    catch (...)
+    {
+        fprintf(stderr, "An [object %s] occured in syscall\n",
+                abi::__cxa_demangle(
+                    abi::__cxa_current_exception_type()->name(),
+                    0,
+                    0,
+                    &status));
+
+        abort();
     }
 
     resche_leave_kernel_mode_hook();

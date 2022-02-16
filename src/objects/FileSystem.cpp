@@ -5,6 +5,8 @@
 #include <objects/File.hpp>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 Fat16FileSystem::Fat16FileSystem(Disk *disk) : disk(disk)
 {
@@ -29,7 +31,7 @@ Fat16FileSystem::Fat16FileSystem(Disk *disk) : disk(disk)
 
     assert(info.total_clusters >= 4085 && info.total_clusters < 65525);
 
-    fat_file = create_shared(File::createSequentialFile(disk, info.first_fat_sector, info.first_fat_sector + info.fat_size));
+    fat_file = File::createSequentialFile(this, info.first_fat_sector, info.first_fat_sector + info.fat_size);
 }
 
 shared_ptr<Directory> Fat16FileSystem::getRootDirectory()
@@ -45,4 +47,58 @@ Fat16FileSystem *Fat16FileSystem::getRootFileSystem()
     }
 
     return rootfs;
+}
+shared_ptr<File> Fat16FileSystem::openFile(shared_ptr<Directory> cwd, const char *path)
+{
+    shared_ptr<Directory> scwd;
+    shared_ptr<File> file;
+
+    if (cwd == nullptr)
+        scwd = getRootFileSystem()->getRootDirectory();
+    else if (path[0] == '/')
+        scwd = getRootFileSystem()->getRootDirectory();
+    else
+        scwd = shared_ptr<Directory>(cwd, nullptr); // do not free
+
+    file = scwd->asFile();
+
+    const char *cursor = path;
+    char filename[MAX_FILENAME_LENGTH + 1];
+    filename[0] = 0;
+
+    while (*cursor && *cursor == '/')
+        cursor++;
+
+    for (; *cursor;)
+    {
+        const char *cursor_start = cursor;
+
+        while (*cursor && *cursor != '/')
+            cursor++;
+
+        memcpy(filename, cursor_start, cursor - cursor_start);
+        filename[cursor - cursor_start] = 0;
+
+        file = scwd->openFile(filename);
+
+        if (!file)
+            return shared_ptr<File>();
+
+        if (*cursor == '/') // dir
+        {
+            while (*cursor && *cursor == '/')
+                cursor++;
+
+            scwd = Directory::fromFile(file);
+
+            if (!scwd)
+                return shared_ptr<File>();
+        }
+        else // target file
+        {
+            break;
+        }
+    }
+
+    return file;
 }

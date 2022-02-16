@@ -4,7 +4,7 @@
 
 .data
 5:
-.fill 4 * PROCESS_MAX_ARGUMENTS, 1, 0
+.fill 4 * (PROCESS_MAX_ARGUMENTS + 1), 1, 0
 .text
 
 start:
@@ -21,6 +21,9 @@ lea 2*PROCESS_MAX_ARGUMENTS(%ebx, %edx), %esi
 mov %esi, 5b(, %eax, 0x4)
 inc %eax
 loop 2b
+
+xor %esi, %esi
+mov %esi, 5b(, %eax, 0x4)
 
 3:
 mov $5b, %ecx

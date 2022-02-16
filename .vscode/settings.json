@@ -19,6 +19,8 @@
         "align_util.h": "c",
         "syscall.hpp": "c",
         "syscall.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "common_def.h": "c",
+        "io_port.h": "c"
     }
 }

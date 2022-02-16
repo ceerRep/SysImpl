@@ -21,8 +21,11 @@
 #include <objects/Disk.hpp>
 #include <objects/FileSystem.hpp>
 #include <objects/Process.hpp>
+#include <objects/ProcessWait.hpp>
 #include <objects/SerialIODevice.hpp>
-#include <objects/VGATextOutputDevice.hpp>
+#include <objects/SleepDevice.hpp>
+#include <objects/SpecialPathManager.hpp>
+#include <objects/VGATextIODevice.hpp>
 
 extern "C"
 {
@@ -56,23 +59,35 @@ extern "C"
             printf("CPUID: %08x %08x %08x %08x\n", eax, ebx, ecx, edx);
         }
 
+        auto device_manager = SpecialPathManager::getInstance();
+
         // Initialize serial
-        // try
-        // {
-        //     SerialIODevice *serial = new SerialIODevice(SERIAL_PORT);
-        //     setDefaultInputDevice(serial);
-        //     setDefaultOutputDevice(serial);
-        //     setErrorOutputDevice(serial);
-        //     printf("Serial IO initialized...\n");
-        // }
-        // catch (std::exception e)
-        // {
-        //     printf("Error initializing serial io: %s\n", e.what());
-        // }
+        try
+        {
+            auto device = SerialIODevice::createSerialIODevice(SERIAL_PORT);
+            setDefaultInputDevice(device.cast<InputDevice>());
+            setDefaultOutputDevice(device.cast<OutputDevice>());
+            setErrorOutputDevice(device.cast<OutputDevice>());
+            device_manager->registerObject(":COM1", device.cast<Object>());
+            printf("Serial IO initialized...\n");
+        }
+        catch (std::exception e)
+        {
+            printf("Error initializing serial io: %s\n", e.what());
+        }
 
         v8086_init();
-        setDefaultOutputDevice(new VGABaseOutputDevice);
-        setErrorOutputDevice(new VGABaseOutputDevice);
+
+        {
+            auto device = VGATextIODevice::getInstance();
+            setDefaultInputDevice(device.cast<InputDevice>());
+            setDefaultOutputDevice(device.cast<OutputDevice>());
+            setErrorOutputDevice(device.cast<OutputDevice>());
+            device_manager->registerObject(":CON", device.cast<Object>());
+        }
+
+        device_manager->registerObject(":WAITPID", ProcessWait::getInstance().cast<Object>());
+        device_manager->registerObject(":SLEEP", SleepDevice::getInstance().cast<Object>());
 
         char *init_path = "/init.elf";
         shared_ptr<char *> args = create_shared(new char *[PROCESS_MAX_ARGUMENTS + 1]);
@@ -131,13 +146,14 @@ void enter_init(char *init_path, char **args)
     auto init_process = new Process(nullptr);
 
     if (getDefaultInputDevice())
-        init_process->setObject(0, shared_ptr<Object>(getDefaultInputDevice(), nullptr));
+        init_process->setObject(0, getDefaultInputDevice().cast<Object>());
     if (getDefaultOutputDevice())
-        init_process->setObject(1, shared_ptr<Object>(getDefaultOutputDevice(), nullptr));
+        init_process->setObject(1, getDefaultOutputDevice().cast<Object>());
     if (getErrorOutputDevice())
-        init_process->setObject(2, shared_ptr<Object>(getErrorOutputDevice(), nullptr));
+        init_process->setObject(2, getErrorOutputDevice().cast<Object>());
 
-    assert("Init process start failed" && !execv(init_process, init_path, args));
+    assert("Init process start failed" && !execv(init_process, "/bin/hlt.elf", args));
+    init_process->setProcessScheType(Process::PROCESS_SCHE_IDLE);
 
     init_process->run();
     Process::leaveKernelMode();

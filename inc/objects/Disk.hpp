@@ -4,7 +4,7 @@
 
 #include <objects/Object.hpp>
 
-class Disk : virtual public Object
+class Disk : public virtual Object
 {
     inline static Disk *boot_disk = nullptr;
 

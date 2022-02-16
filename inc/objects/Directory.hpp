@@ -2,44 +2,56 @@
 
 #define _directory_hpp
 
-#include "Object.hpp"
 #include "File.hpp"
-#include "FileSystem.hpp"
+#include "Object.hpp"
+
+#include <stdexcept.h>
 
 struct Fat16FileSystem;
 
-struct FileStat
+struct InvalidFileModeException : public std::exception
+{
+    virtual const char *what() const throw() override
+    {
+        return "invalid file mode";
+    }
+};
+
+struct FileInfo
 {
     char filename[15];
     bool directory;
     size_t size;
 };
 
-class Directory : virtual public Object
+class Directory : public virtual Object
 {
     Fat16FileSystem *fs;
     shared_ptr<File> file;
 
-    struct FileStatEx : FileStat
+    struct FileInfoEx : FileInfo
     {
         uint32_t cluster;
     };
 
     int file_num;
-    shared_ptr<FileStatEx> stats;
+    shared_ptr<FileInfoEx> infos;
 
     void init();
 
 public:
     Directory(Fat16FileSystem *fs, uint32_t first_cluster);
     Directory(Fat16FileSystem *fs, uint32_t begin, uint32_t end);
+    Directory(Fat16FileSystem *fs, shared_ptr<File> file);
+
+    shared_ptr<File> asFile() { return file; }
 
     int size() const { return file_num; }
 
-    const FileStat &operator[](int index) const { return stats[index]; }
+    const FileInfo &operator[](int index) const { return infos[index]; }
 
-    File *openFile(const char *name);
-    Directory *openDirectory(const char *name);
+    shared_ptr<File> openFile(const char *name);
+    static shared_ptr<Directory> fromFile(shared_ptr<File> dir);
 };
 
 #endif

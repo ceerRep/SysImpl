@@ -9,7 +9,7 @@
 
 #include <shared_ptr.hpp>
 
-class Segment : virtual public BeforeAttachedHook
+class Segment : public virtual BeforeAttachedHook
 {
     uintptr_t base;
     uintptr_t size;

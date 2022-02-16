@@ -25,6 +25,8 @@ extern "C"
     char *strstr(const char *s, const char *find);
     long strtol(const char *nptr, char **endptr, int base);
 
+    char *strtok(char *s, const char *delim);
+
 #ifdef __cplusplus
 }
 #endif

@@ -29,7 +29,7 @@ class shared_ptr
                 return ret;
         }
 
-        int decRef()
+        int decRef() const
         {
             int ret = __sync_sub_and_fetch(&ref, 1);
             if (__sync_bool_compare_and_swap(&ref, 0, 0x80000000))
@@ -57,20 +57,35 @@ class shared_ptr
     {
     }
 
+    shared_ptr(shared_buffer *_buffer) : buffer(_buffer)
+    {
+        if (buffer && buffer->addRef() == 0)
+            buffer = nullptr;
+    }
+
     template <typename ValueType1>
     friend shared_ptr<ValueType1> create_shared(ValueType1 *ptr);
 
+    template <typename ValueType1>
+    friend class shared_ptr;
+
 public:
     shared_ptr() : buffer(nullptr) {}
+    shared_ptr(nullptr_t) : shared_ptr() {}
     shared_ptr(ValueType *pvalue, void (*destructor)(ValueType *))
         : buffer(new shared_buffer{pvalue, destructor, 1})
     {
     }
+
     shared_ptr(const shared_ptr &s)
+        : shared_ptr(s.buffer)
+    {
+    }
+
+    shared_ptr(shared_ptr &&s)
         : buffer(s.buffer)
     {
-        if (buffer && buffer->addRef() == 0)
-            buffer = nullptr;
+        s.buffer = nullptr;
     }
 
     ~shared_ptr()
@@ -142,6 +157,28 @@ public:
     operator bool() const
     {
         return buffer;
+    }
+
+    template <typename To>
+    shared_ptr<To> cast()
+    {
+        if constexpr (std::is_convertible_v<ValueType *, To *>)
+        {
+            return shared_ptr<To>((typename shared_ptr<To>::shared_buffer *)buffer);
+        }
+        else if constexpr (std::is_convertible_v<To *, ValueType *>)
+        {
+            if (dynamic_cast<To *>(buffer->ptr))
+                return shared_ptr<To>((typename shared_ptr<To>::shared_buffer *)buffer);
+            else
+                return shared_ptr<To>();
+        }
+        else
+        {
+            ValueType *v0 = (To *)nullptr;
+            To *v1 = (ValueType *)nullptr;
+            static_assert(std::is_convertible_v<ValueType *, To *> || std::is_convertible_v<To *, ValueType *>);
+        }
     }
 };
 

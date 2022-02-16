@@ -13,17 +13,17 @@
 #define CLOCK0 CLOCKBASE        //
 #define CLKCNTL (CLOCKBASE + 3) /* chip CSW I/O port		*/
 
-static int64_t pic_ticks = 0;
+static int64_t pit_ticks = 0;
 
 int64_t get_tick()
 {
-    return pic_ticks;
+    return pit_ticks;
 }
 
 void __attribute__((interrupt)) timer_handler(interrupt_frame *frame)
 {
     SegmentRegsSetter setter;
-    pic_ticks++;
+    pit_ticks++;
     PIC_sendEOI(0);
     resche_tick(frame);
 }

@@ -10,19 +10,19 @@ class SequentialFile : public File
     uint32_t begin, end;
     uint32_t filesize;
 
-    Disk *disk;
+    Fat16FileSystem *fs;
 
     int64_t buffer_pos;
     shared_ptr<uint8_t> _buffer;
     uint8_t *buffer;
 
 public:
-    SequentialFile(Disk *disk, uint32_t begin, uint32_t end)
+    SequentialFile(Fat16FileSystem *fs, uint32_t begin, uint32_t end)
         : cursor(0),
           begin(begin),
           end(end),
           filesize((end - begin) * 512),
-          disk(disk),
+          fs(fs),
           buffer_pos(-1),
           _buffer(create_shared(new uint8_t[512])),
           buffer(_buffer.get())
@@ -35,7 +35,7 @@ public:
 
         if (cursor_sector != buffer_pos)
         {
-            disk->readSector(cursor_sector + begin, buffer);
+            fs->getDisk()->readSector(cursor_sector + begin, buffer);
             buffer_pos = cursor_sector;
         }
     }
@@ -95,6 +95,16 @@ public:
     {
         return cursor;
     }
+
+    virtual FileStat stat() override
+    {
+        return FileStat{filesize, FileStat::F_DIR};
+    }
+
+    virtual Fat16FileSystem *getFS() override
+    {
+        return fs;
+    }
 };
 
 class ClusterFile : public File
@@ -109,8 +119,9 @@ class ClusterFile : public File
     uint32_t start_cluster_pos;
 
     uint32_t cursor;
-    uint32_t size;
     uint32_t cluster_num;
+
+    FileStat _stat;
 
     shared_ptr<uint16_t> clusters;
 
@@ -121,11 +132,11 @@ class ClusterFile : public File
     shared_ptr<File> fat_file;
 
 public:
-    ClusterFile(Fat16FileSystem *fs, uint32_t start_cluster_pos, uint32_t size)
+    ClusterFile(Fat16FileSystem *fs, uint32_t start_cluster_pos, FileStat stat)
         : fs(fs),
           disk(fs->getDisk()),
           start_cluster_pos(start_cluster_pos),
-          size(size),
+          _stat(stat),
           _buffer(create_shared(new uint8_t[512])),
           buffer_pos(-1),
           buffer(_buffer.get()),
@@ -137,8 +148,14 @@ public:
         auto info = fs->getInfo();
         uint16_t now_cluster = start_cluster_pos;
 
-        while (now_cluster < CLUSTER_END && (int64_t)count * info->pbr.sectors_per_cluster * 512 < size)
+        if (_stat.mode == FileStat::F_DIR)
+            _stat.size = 0;
+
+        while (now_cluster < CLUSTER_END)
         {
+            if (_stat.mode == FileStat::F_DIR)
+                _stat.size += info->pbr.sectors_per_cluster * 512;
+
             fat_file->seek(now_cluster * sizeof(uint16_t), File::SEEK_SET);
             fat_file->read(&now_cluster, sizeof(now_cluster));
             count++;
@@ -148,13 +165,13 @@ public:
 
         cluster_num = count;
 
-        if (cluster_num * info->pbr.sectors_per_cluster * 512 > size)
-            size = cluster_num * info->pbr.sectors_per_cluster * 512;
+        if (cluster_num * info->pbr.sectors_per_cluster * 512 > _stat.size)
+            _stat.size = cluster_num * info->pbr.sectors_per_cluster * 512;
 
         count = 0;
         now_cluster = start_cluster_pos;
 
-        while (now_cluster < CLUSTER_END && (int64_t)count * info->pbr.sectors_per_cluster * 512 < size)
+        while (now_cluster < CLUSTER_END && (int64_t)count * info->pbr.sectors_per_cluster * 512 < _stat.size)
         {
             assert(count < cluster_num);
             clusters[count] = now_cluster;
@@ -183,7 +200,7 @@ public:
 
     int getc()
     {
-        if (cursor >= size)
+        if (cursor >= _stat.size)
             return EOF;
 
         ensureCursorInBuffer();
@@ -222,7 +239,7 @@ public:
             break;
 
         case SEEK_END:
-            cursor = size + pos;
+            cursor = _stat.size + pos;
             break;
 
         default:
@@ -236,14 +253,24 @@ public:
     {
         return cursor;
     }
+
+    virtual FileStat stat() override
+    {
+        return _stat;
+    }
+
+    virtual Fat16FileSystem *getFS() override
+    {
+        return fs;
+    }
 };
 
-File *File::createSequentialFile(Disk *disk, uint32_t begin, uint32_t end)
+shared_ptr<File> File::createSequentialFile(Fat16FileSystem *fs, uint32_t begin, uint32_t end)
 {
-    return new SequentialFile(disk, begin, end);
+    return make_shared<SequentialFile>(fs, begin, end).cast<File>();
 }
 
-File *File::createFileByCluster(Fat16FileSystem *fs, uint32_t start_cluster_pos, uint32_t size)
+shared_ptr<File> File::createFileByCluster(Fat16FileSystem *fs, uint32_t start_cluster_pos, FileStat stat)
 {
-    return new ClusterFile(fs, start_cluster_pos, size);
+    return make_shared<ClusterFile>(fs, start_cluster_pos, stat).cast<File>();
 }

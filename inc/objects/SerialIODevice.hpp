@@ -11,12 +11,16 @@ class SerialIOInitializeError : public std::exception
 {
 };
 
-class SerialIODevice : virtual public OutputDevice, virtual public InputDevice
+class SerialIODevice : public virtual OutputDevice, public virtual InputDevice
 {
     int port;
 
-public:
+protected:
+
+    void backspace();
     SerialIODevice(int port);
+
+public:
 
     int empty();
     int getc();
@@ -27,6 +31,8 @@ public:
     int putc0(char ch);
     int putc(char ch);
     virtual int64_t write(const void *data, size_t size) override;
+
+    static shared_ptr<SerialIODevice> createSerialIODevice(int port);
 };
 
 #endif

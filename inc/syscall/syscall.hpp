@@ -14,7 +14,9 @@
 
 
 #define SYSCALL_SEM_CREATE 200
+#define SYSCALL_READDIR 201
 
+#define SYSCALL_HIDDEN_HLT 254
 #define SYSCALL_END 255
 
 #endif

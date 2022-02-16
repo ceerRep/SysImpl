@@ -1,8 +1,11 @@
 #include <objects/SerialIODevice.hpp>
 
+#include <errno.h>
 #include <io_port.h>
 #include <stdio.h>
-#include <errno.h>
+
+#include <objects/BlockInputDevice.hpp>
+#include <objects/LineBufferedIOMixin.hpp>
 
 SerialIODevice::SerialIODevice(int port) : port(port)
 {
@@ -27,6 +30,11 @@ SerialIODevice::SerialIODevice(int port) : port(port)
     outb(port + 4, 0x0F);
 }
 
+void SerialIODevice::backspace()
+{
+    write("\x08 \x08", 3);
+}
+
 int SerialIODevice::empty()
 {
     return !(inb(port + 5) & 1);
@@ -37,14 +45,19 @@ int SerialIODevice::getc()
     if (empty())
         return EOF;
 
-    return inb(port);
+    auto ret = inb(port);
+
+    if (ret == '\r')
+        return '\n';
+    
+    return ret;
 }
 
 int64_t SerialIODevice::read(void *buffer, size_t size)
 {
     if (empty())
         return -EAGAIN;
-    
+
     char *cbuffer = (char *)buffer;
 
     size_t i;
@@ -88,4 +101,9 @@ int64_t SerialIODevice::write(const void *data, size_t size)
     for (size_t i = 0; i < size; i++)
         putc(((char *)data)[i]);
     return size;
+}
+
+shared_ptr<SerialIODevice> SerialIODevice::createSerialIODevice(int port)
+{
+    return make_shared<BlockInputDeviceMixin<LineBufferedIOMixin<SerialIODevice>>>(port).cast<SerialIODevice>();
 }

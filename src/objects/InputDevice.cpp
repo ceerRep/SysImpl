@@ -1,19 +1,22 @@
 #include <stdio.h>
+#include <shared_ptr.hpp>
 #include <objects/InputDevice.hpp>
 extern "C"
 {
     InputDevice *defaultInputDevice = nullptr;
+    shared_ptr<InputDevice> pdefaultInputDevice;
     extern void *stdin __attribute__((alias("defaultInputDevice")));
 }
 
-InputDevice *setDefaultInputDevice(InputDevice *device)
+shared_ptr<InputDevice> setDefaultInputDevice(shared_ptr<InputDevice> device)
 {
-    auto ret = defaultInputDevice;
+    auto ret = pdefaultInputDevice;
+    pdefaultInputDevice = device;
     defaultInputDevice = device;
     return ret;
 }
 
-InputDevice *getDefaultInputDevice()
+shared_ptr<InputDevice> getDefaultInputDevice()
 {
-    return defaultInputDevice;
+    return pdefaultInputDevice;
 }

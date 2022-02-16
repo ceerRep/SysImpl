@@ -24,16 +24,16 @@ extern "C"
     {
         KERNEL_BOOT_STACK_PROTECTOR = 0x1919810;
 
-        new (&early_output) EarlyStageOutputDevice;
-        setDefaultOutputDevice(&early_output);
-        setErrorOutputDevice(&early_output);
+        setKernelHeap(HeapInitialize(KERNEL_BOOT_HEAP_END - KERNEL_BOOT_HEAP_START, KERNEL_BOOT_HEAP_START));
+
+        auto device = make_shared<EarlyStageOutputDevice>();
+        setDefaultOutputDevice(device.cast<OutputDevice>());
+        setErrorOutputDevice(device.cast<OutputDevice>());
 
         assert(magic == 0x2BADB002);
 
         mbi_info = *(multiboot_info *)info_addr;
         strlcpy(kernel_cmdline, (char *)mbi_info.cmdline, 512);
-
-        setKernelHeap(HeapInitialize(KERNEL_BOOT_HEAP_END - KERNEL_BOOT_HEAP_START, KERNEL_BOOT_HEAP_START));
         printf("CRT initialized...\n");
     }
 

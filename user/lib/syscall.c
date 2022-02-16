@@ -5,9 +5,9 @@ uint64_t syscall(uint32_t callsys, uint32_t arg1, uint32_t arg2, uint32_t arg3, 
 {
     uint64_t ret;
     asm volatile("int $0x80"
-        : "=A"(ret)
-        : "a"(callsys), "b"(arg1), "c"(arg2), "d"(arg3), "S"(arg4), "D"(arg5)
-        : "memory", "cc");
+                 : "=A"(ret)
+                 : "a"(callsys), "b"(arg1), "c"(arg2), "d"(arg3), "S"(arg4), "D"(arg5)
+                 : "memory", "cc");
     return ret;
 }
 
@@ -24,6 +24,11 @@ int32_t read(int32_t fd, void *buffer, size_t size)
 int32_t write(int32_t fd, void *buffer, size_t size)
 {
     return syscall(SYSCALL_WRITE, fd, (uintptr_t)buffer, size, 0, 0);
+}
+
+int32_t open(const char *filename)
+{
+    return syscall(SYSCALL_OPEN, (uintptr_t)filename, 0, 0, 0, 0);
 }
 
 int32_t close(int32_t fd)
@@ -79,4 +84,9 @@ void sched_yield()
 int sem_create(int cnt)
 {
     return syscall(SYSCALL_SEM_CREATE, cnt, 0, 0, 0, 0);
+}
+
+int32_t readdir(uint32_t fd, file_info_t *info, int *n)
+{
+    return syscall(SYSCALL_READDIR, fd, (uintptr_t)info, (uintptr_t)n, 0, 0);
 }

@@ -1,8 +1,7 @@
-#include <stdio.h>
-
+#include <limits.h>
+#include <stdarg.h>
 #include <stddef.h>
-#include <stdint.h>
-
+#include <stdio.h>
 #include <string.h>
 #include <syscall.h>
 
@@ -21,280 +20,561 @@ int fputs(const char *str, int fd)
     return ret;
 }
 
-int fprintf(int fd, const char *fmt, ...)
+enum flags
 {
-    enum
+    FL_ZERO = 0x01,   /* Zero modifier */
+    FL_MINUS = 0x02,  /* Minus modifier */
+    FL_PLUS = 0x04,   /* Plus modifier */
+    FL_TICK = 0x08,   /* ' modifier */
+    FL_SPACE = 0x10,  /* Space modifier */
+    FL_HASH = 0x20,   /* # modifier */
+    FL_SIGNED = 0x40, /* Number is signed */
+    FL_UPPER = 0x80   /* Upper case digits */
+};
+
+/* These may have to be adjusted on certain implementations */
+enum ranks
+{
+    rank_char = -2,
+    rank_short = -1,
+    rank_int = 0,
+    rank_long = 1,
+    rank_longlong = 2
+};
+
+#define MIN_RANK rank_char
+#define MAX_RANK rank_longlong
+
+#define INTMAX_RANK rank_longlong
+#define SIZE_T_RANK rank_long
+#define PTRDIFF_T_RANK rank_long
+
+#define EMIT(x) ({ if (o<n){*q++ = (x);} o++; })
+
+static size_t
+format_int(char *q, size_t n, uintmax_t val, enum flags flags,
+           int base, int width, int prec)
+{
+    char *qq;
+    size_t o = 0, oo;
+    static const char lcdigits[] = "0123456789abcdef";
+    static const char ucdigits[] = "0123456789ABCDEF";
+    const char *digits;
+    uintmax_t tmpval;
+    int minus = 0;
+    int ndigits = 0, nchars;
+    int tickskip, b4tick;
+
+    /* Select type of digits */
+    digits = (flags & FL_UPPER) ? ucdigits : lcdigits;
+
+    /* If signed, separate out the minus */
+    if (flags & FL_SIGNED && (intmax_t)val < 0)
     {
-        PRI_UNK = 0,
-        PRI_CHAR = 1,
-        PRI_I32 = 11,
-        PRI_I64 = 21,
-        PRI_U32 = 10,
-        PRI_U64 = 20,
-        PRI_X32 = 8,
-        PRI_X64 = 16,
-        PRI_STR = -1
-    };
-
-    enum
-    {
-        PRINTF_BUFFER_SIZE = 64
-    };
-
-    int cnt = 0;
-    char buffer[PRINTF_BUFFER_SIZE];
-    const static char hex[] = "0123456789ABCDEF";
-
-    char *buffer_pos = buffer;
-
-    char *now_arg = (char *)(&fmt) + sizeof(const char *);
-
-    while (*fmt)
-    {
-        int type = PRI_UNK;
-        int prefix_zero = 0;
-        int output_length = 0;
-        uint64_t data;
-
-        if (*fmt == '%')
-        {
-            fmt++;
-
-            int l_num = 0;
-            uintptr_t data_size = 0;
-
-            for (;;)
-            {
-                switch (*fmt)
-                {
-                case '0' ... '9':
-                {
-                    int num = *fmt - '0';
-
-                    if (prefix_zero == 0 && num == 0)
-                    {
-                        prefix_zero = 1;
-                    }
-                    else
-                    {
-                        output_length = output_length * 10 + num;
-                    }
-
-                    break;
-                }
-                case 'd':
-                    if (l_num <= 1)
-                    {
-                        data_size = 4;
-                        type = PRI_I32;
-                    }
-                    else
-                    {
-                        data_size = 8;
-                        type = PRI_I64;
-                    }
-                    break;
-                case 'u':
-                    if (l_num <= 1)
-                    {
-                        data_size = 4;
-                        type = PRI_U32;
-                    }
-                    else
-                    {
-                        data_size = 8;
-                        type = PRI_U64;
-                    }
-                    break;
-                case 'x':
-                    if (l_num <= 1)
-                    {
-                        data_size = 4;
-                        type = PRI_X32;
-                    }
-                    else
-                    {
-                        data_size = 8;
-                        type = PRI_X64;
-                    }
-                    break;
-                case 'l':
-                    l_num++;
-
-                    if (l_num == 3)
-                    {
-                        data_size = 0;
-                        type = PRI_STR;
-                        data = (uint64_t)(uintptr_t) "<%lll is too long for printf>";
-                    }
-
-                    break;
-                case 's':
-                    data_size = sizeof(char *);
-                    type = PRI_STR;
-                    break;
-                case 'c':
-                    data_size = 4;
-                    type = PRI_CHAR;
-                    break;
-                case '%':
-                    data_size = 0;
-                    type = PRI_CHAR;
-                    data = '%';
-                default:
-                    data_size = 0;
-                    type = PRI_CHAR;
-                    data = *fmt;
-                }
-
-                if (type != PRI_UNK)
-                    break;
-
-                fmt++;
-            }
-
-            switch (data_size)
-            {
-            case 4:
-                data = *(uint32_t *)now_arg;
-                break;
-            case 8:
-                data = *(uint64_t *)now_arg;
-                break;
-            }
-
-            now_arg = now_arg + data_size;
-        }
-        else
-        {
-            type = PRI_CHAR;
-            data = *fmt;
-        }
-
-        if (*fmt)
-            fmt++;
-
-        if (output_length > type)
-            output_length = type;
-
-        if (type == PRI_STR || buffer_pos + type + 1 >= buffer + PRINTF_BUFFER_SIZE)
-        {
-            *buffer_pos = 0;
-            int cnt1 = fputs(buffer, fd);
-            if (cnt1 < 0)
-            {
-                cnt += -cnt1;
-                return -cnt;
-            }
-            else
-                cnt += cnt1;
-
-            buffer_pos = buffer;
-        }
-
-        if (type == PRI_STR)
-        {
-            int cnt1 = fputs((char *)(uintptr_t)data, fd);
-            if (cnt1 < 0)
-            {
-                cnt += -cnt1;
-                return -cnt;
-            }
-            else
-                cnt += cnt1;
-        }
-        else if (type == PRI_CHAR)
-        {
-            *(buffer_pos++) = (char)data;
-        }
-        else // INTS
-        {
-            if (type == PRI_I32 || type == PRI_U32 || type == PRI_I64 || type == PRI_U64 || type == PRI_X32 || type == PRI_X64)
-            {
-                int print_minus = 0;
-                int printed = 0;
-                int base = 10;
-
-                if (type == PRI_I32 || type == PRI_U32 || type == PRI_I64 || type == PRI_U64)
-                    base = 10;
-                else if (type == PRI_X32 || type == PRI_X64)
-                    base = 16;
-
-                if (type == PRI_I32)
-                {
-                    if ((int32_t)data < 0)
-                    {
-                        data = -(int32_t)data;
-                        print_minus = 1;
-
-                        if (prefix_zero)
-                            output_length--;
-                    }
-                }
-                else if (type == PRI_I64)
-                {
-                    if ((int64_t)data < 0)
-                    {
-                        data = -(int64_t)data;
-                        print_minus = 1;
-
-                        if (prefix_zero)
-                            output_length--;
-                    }
-                }
-
-                char *start = buffer_pos, *end = buffer_pos;
-                while (data)
-                {
-                    printed = 1;
-                    *(end++) = hex[data % base];
-                    data /= base;
-                }
-
-                if (!printed)
-                {
-                    *(end++) = '0';
-                }
-
-                if (print_minus && !prefix_zero)
-                {
-                    *(end++) = '-';
-                }
-
-                while (end - start < output_length)
-                {
-                    *(end++) = prefix_zero ? '0' : ' ';
-                }
-
-                if (print_minus && prefix_zero)
-                {
-                    *(end++) = '-';
-                }
-
-                buffer_pos = end;
-                end--;
-
-                while (start < end)
-                {
-                    char t = *start;
-                    *start = *end;
-                    *end = t;
-                    start++;
-                    end--;
-                }
-            }
-        }
+        minus = 1;
+        val = (uintmax_t)(-(intmax_t)val);
     }
 
-    *buffer_pos = 0;
-    int cnt1 = fputs(buffer, fd);
-    if (cnt1 < 0)
+    /* Count the number of digits needed.  This returns zero for 0. */
+    tmpval = val;
+    while (tmpval)
     {
-        cnt += -cnt1;
-        return -cnt;
+        tmpval /= base;
+        ndigits++;
+    }
+
+    /* Adjust ndigits for size of output */
+
+    if (flags & FL_HASH && base == 8)
+    {
+        if (prec < ndigits + 1)
+            prec = ndigits + 1;
+    }
+
+    if (ndigits < prec)
+    {
+        ndigits = prec; /* Mandatory number padding */
+    }
+    else if (val == 0)
+    {
+        ndigits = 1; /* Zero still requires space */
+    }
+
+    /* For ', figure out what the skip should be */
+    if (flags & FL_TICK)
+    {
+        tickskip = (base == 16) ? 4 : 3;
     }
     else
-        cnt += cnt1;
+    {
+        tickskip = ndigits; /* No tick marks */
+    }
 
-    return cnt;
+    /* Tick marks aren't digits, but generated by the number converter */
+    ndigits += (ndigits - 1) / tickskip;
+
+    /* Now compute the number of nondigits */
+    nchars = ndigits;
+
+    if (minus || (flags & (FL_PLUS | FL_SPACE)))
+        nchars++; /* Need space for sign */
+    if ((flags & FL_HASH) && base == 16)
+    {
+        nchars += 2; /* Add 0x for hex */
+    }
+
+    /* Emit early space padding */
+    if (!(flags & (FL_MINUS | FL_ZERO)) && width > nchars)
+    {
+        while (width > nchars)
+        {
+            EMIT(' ');
+            width--;
+        }
+    }
+
+    /* Emit nondigits */
+    if (minus)
+        EMIT('-');
+    else if (flags & FL_PLUS)
+        EMIT('+');
+    else if (flags & FL_SPACE)
+        EMIT(' ');
+
+    if ((flags & FL_HASH) && base == 16)
+    {
+        EMIT('0');
+        EMIT((flags & FL_UPPER) ? 'X' : 'x');
+    }
+
+    /* Emit zero padding */
+    if ((flags & (FL_MINUS | FL_ZERO)) == FL_ZERO && width > ndigits)
+    {
+        while (width > nchars)
+        {
+            EMIT('0');
+            width--;
+        }
+    }
+
+    /* Generate the number.  This is done from right to left. */
+    q += ndigits; /* Advance the pointer to end of number */
+    o += ndigits;
+    qq = q;
+    oo = o; /* Temporary values */
+
+    b4tick = tickskip;
+    while (ndigits > 0)
+    {
+        if (!b4tick--)
+        {
+            qq--;
+            oo--;
+            ndigits--;
+            if (oo < n)
+                *qq = '_';
+            b4tick = tickskip - 1;
+        }
+        qq--;
+        oo--;
+        ndigits--;
+        if (oo < n)
+            *qq = digits[val % base];
+        val /= base;
+    }
+
+    /* Emit late space padding */
+    while ((flags & FL_MINUS) && width > nchars)
+    {
+        EMIT(' ');
+        width--;
+    }
+
+    return o;
+}
+
+int vsnprintf(char *buffer, size_t n, const char *format, va_list ap)
+{
+    const char *p = format;
+    char ch;
+    char *q = buffer;
+    size_t o = 0; /* Number of characters output */
+    uintmax_t val = 0;
+    int rank = rank_int; /* Default rank */
+    int width = 0;
+    int prec = -1;
+    int base;
+    size_t sz;
+    enum flags flags = 0;
+    enum
+    {
+        st_normal,   /* Ground state */
+        st_flags,    /* Special flags */
+        st_width,    /* Field width */
+        st_prec,     /* Field precision */
+        st_modifiers /* Length or conversion modifiers */
+    } state = st_normal;
+    const char *sarg; /* %s string argument */
+    char carg;        /* %c char argument */
+    int slen;         /* String length */
+
+    while ((ch = *p++))
+    {
+        switch (state)
+        {
+        case st_normal:
+            if (ch == '%')
+            {
+                state = st_flags;
+                flags = 0;
+                rank = rank_int;
+                width = 0;
+                prec = -1;
+            }
+            else
+            {
+                EMIT(ch);
+            }
+            break;
+
+        case st_flags:
+            switch (ch)
+            {
+            case '-':
+                flags |= FL_MINUS;
+                break;
+            case '+':
+                flags |= FL_PLUS;
+                break;
+            case '\'':
+                flags |= FL_TICK;
+                break;
+            case ' ':
+                flags |= FL_SPACE;
+                break;
+            case '#':
+                flags |= FL_HASH;
+                break;
+            case '0':
+                flags |= FL_ZERO;
+                break;
+            default:
+                state = st_width;
+                p--; /* Process this character again */
+                break;
+            }
+            break;
+
+        case st_width:
+            if (ch >= '0' && ch <= '9')
+            {
+                width = width * 10 + (ch - '0');
+            }
+            else if (ch == '*')
+            {
+                width = va_arg(ap, int);
+                if (width < 0)
+                {
+                    width = -width;
+                    flags |= FL_MINUS;
+                }
+            }
+            else if (ch == '.')
+            {
+                prec = 0; /* Precision given */
+                state = st_prec;
+            }
+            else
+            {
+                state = st_modifiers;
+                p--; /* Process this character again */
+            }
+            break;
+
+        case st_prec:
+            if (ch >= '0' && ch <= '9')
+            {
+                prec = prec * 10 + (ch - '0');
+            }
+            else if (ch == '*')
+            {
+                prec = va_arg(ap, int);
+                if (prec < 0)
+                    prec = -1;
+            }
+            else
+            {
+                state = st_modifiers;
+                p--; /* Process this character again */
+            }
+            break;
+
+        case st_modifiers:
+            switch (ch)
+            {
+                /* Length modifiers - nonterminal sequences */
+            case 'h':
+                rank--; /* Shorter rank */
+                break;
+            case 'l':
+                rank++; /* Longer rank */
+                break;
+            case 'j':
+                rank = INTMAX_RANK;
+                break;
+            case 'z':
+                rank = SIZE_T_RANK;
+                break;
+            case 't':
+                rank = PTRDIFF_T_RANK;
+                break;
+            case 'L':
+            case 'q':
+                rank += 2;
+                break;
+            default:
+                /* Output modifiers - terminal sequences */
+
+                /* Next state will be normal */
+                state = st_normal;
+
+                /* Canonicalize rank */
+                if (rank < MIN_RANK)
+                    rank = MIN_RANK;
+                else if (rank > MAX_RANK)
+                    rank = MAX_RANK;
+
+                switch (ch)
+                {
+                case 'P': /* Upper case pointer */
+                    flags |= FL_UPPER;
+                    /* fall through */
+                case 'p': /* Pointer */
+                    base = 16;
+                    prec = (CHAR_BIT * sizeof(void *) + 3) / 4;
+                    flags |= FL_HASH;
+                    val = (uintmax_t)(uintptr_t)
+                        va_arg(ap, void *);
+                    goto is_integer;
+
+                case 'd': /* Signed decimal output */
+                case 'i':
+                    base = 10;
+                    flags |= FL_SIGNED;
+                    switch (rank)
+                    {
+                    case rank_char:
+                        /* Yes, all these casts are
+                           needed... */
+                        val = (uintmax_t)(intmax_t)(signed char)
+                            va_arg(ap, signed int);
+                        break;
+                    case rank_short:
+                        val = (uintmax_t)(intmax_t)(signed short)
+                            va_arg(ap, signed int);
+                        break;
+                    case rank_int:
+                        val = (uintmax_t)(intmax_t)
+                            va_arg(ap, signed int);
+                        break;
+                    case rank_long:
+                        val = (uintmax_t)(intmax_t)
+                            va_arg(ap, signed long);
+                        break;
+                    case rank_longlong:
+                        val = (uintmax_t)(intmax_t)
+                            va_arg(ap,
+                                   signed long long);
+                        break;
+                    }
+                    goto is_integer;
+                case 'o': /* Octal */
+                    base = 8;
+                    goto is_unsigned;
+                case 'u': /* Unsigned decimal */
+                    base = 10;
+                    goto is_unsigned;
+                case 'X': /* Upper case hexadecimal */
+                    flags |= FL_UPPER;
+                    /* fall through */
+                case 'x': /* Hexadecimal */
+                    base = 16;
+                    goto is_unsigned;
+
+                is_unsigned:
+                    switch (rank)
+                    {
+                    case rank_char:
+                        val = (uintmax_t)(unsigned char)
+                            va_arg(ap, unsigned int);
+                        break;
+                    case rank_short:
+                        val = (uintmax_t)(unsigned short)
+                            va_arg(ap, unsigned int);
+                        break;
+                    case rank_int:
+                        val = (uintmax_t)
+                            va_arg(ap, unsigned int);
+                        break;
+                    case rank_long:
+                        val = (uintmax_t)
+                            va_arg(ap, unsigned long);
+                        break;
+                    case rank_longlong:
+                        val = (uintmax_t)
+                            va_arg(ap, unsigned long long);
+                        break;
+                    }
+                    /* fall through */
+
+                is_integer:
+                    sz = format_int(q, (o < n) ? n - o : 0,
+                                    val, flags, base,
+                                    width, prec);
+                    q += sz;
+                    o += sz;
+                    break;
+
+                case 'c': /* Character */
+                    carg = (char)va_arg(ap, int);
+                    sarg = &carg;
+                    slen = 1;
+                    goto is_string;
+                case 's': /* String */
+                    sarg = va_arg(ap, const char *);
+                    sarg = sarg ? sarg : "(null)";
+                    slen = strlen(sarg);
+                    goto is_string;
+
+                is_string:
+                {
+                    char sch;
+                    int i;
+
+                    if (prec != -1 && slen > prec)
+                        slen = prec;
+
+                    if (width > slen && !(flags & FL_MINUS))
+                    {
+                        char pad =
+                            (flags & FL_ZERO) ? '0' : ' ';
+                        while (width > slen)
+                        {
+                            EMIT(pad);
+                            width--;
+                        }
+                    }
+                    for (i = slen; i; i--)
+                    {
+                        sch = *sarg++;
+                        EMIT(sch);
+                    }
+                    if (width > slen && (flags & FL_MINUS))
+                    {
+                        while (width > slen)
+                        {
+                            EMIT(' ');
+                            width--;
+                        }
+                    }
+                }
+                break;
+
+                case 'n':
+                {
+                    /* Output the number of
+                       characters written */
+
+                    switch (rank)
+                    {
+                    case rank_char:
+                        *va_arg(ap,
+                                signed char *) = o;
+                        break;
+                    case rank_short:
+                        *va_arg(ap,
+                                signed short *) = o;
+                        break;
+                    case rank_int:
+                        *va_arg(ap,
+                                signed int *) = o;
+                        break;
+                    case rank_long:
+                        *va_arg(ap,
+                                signed long *) = o;
+                        break;
+                    case rank_longlong:
+                        *va_arg(ap,
+                                signed long long *) = o;
+                        break;
+                    }
+                }
+                break;
+
+                default: /* Anything else, including % */
+                    EMIT(ch);
+                    break;
+                }
+            }
+        }
+    }
+
+    /* Null-terminate the string */
+    if (o < n)
+        *q = '\0'; /* No overflow */
+    else if (n > 0)
+        buffer[n - 1] = '\0'; /* Overflow - terminate at end of buffer */
+
+    return o;
+}
+
+int snprintf(char *buffer, size_t n, const char *format, ...)
+{
+    va_list ap;
+    int rv;
+
+    va_start(ap, format);
+    rv = vsnprintf(buffer, n, format, ap);
+    va_end(ap);
+    return rv;
+}
+
+int vfprintf(int fd, const char *format, va_list ap)
+{
+    int rv;
+    char buffer[128];
+
+    rv = vsnprintf(buffer, 128, format, ap);
+
+    if (rv < 0)
+        return rv;
+
+    if (rv > 128 - 1)
+        rv = 128 - 1;
+
+    rv = fputs(buffer, fd);
+
+    return rv;
+}
+
+int printf(const char *format, ...)
+{
+    va_list ap;
+    int rv;
+
+    va_start(ap, format);
+    rv = vfprintf(1, format, ap);
+    va_end(ap);
+    return rv;
+}
+
+int fprintf(int fd, const char *format, ...)
+{
+    va_list ap;
+    int rv;
+
+    va_start(ap, format);
+    rv = vfprintf(fd, format, ap);
+    va_end(ap);
+    return rv;
 }

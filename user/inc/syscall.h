@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <common_def.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -16,6 +17,7 @@ extern "C"
 
     int32_t read(int32_t fd, void *buffer, size_t size);
     int32_t write(int32_t fd, void *buffer, size_t size);
+    int32_t open(const char* filename);
     int32_t close(int32_t fd);
 
     int32_t fork();
@@ -27,6 +29,7 @@ extern "C"
     int32_t exec_exl(char *exec, char **args, ... /* -1 */);
 
     int32_t dup2(uint32_t oldfd, uint32_t newfd);
+    int32_t readdir(uint32_t fd, file_info_t *info, int *n);
 
     void sched_yield();
 

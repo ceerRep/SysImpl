@@ -9,7 +9,10 @@ IF (!$disk_number) {
 $disk_number = (Get-DiskImage -ImagePath $vhdpath).Number
 
 $target_folder = -join((Get-Partition -DiskNumber $disk_number).DriveLetter, ':\')
+$target_user_folder = -join((Get-Partition -DiskNumber $disk_number).DriveLetter, ':\bin')
 
-robocopy build\ $target_folder\ '*.elf' /s /ndl /xj
+cp build\kernel.elf $target_folder\
+
+get-childitem build\user\ -Attributes !Directory -filter *elf -recurse | copy-item -Destination $target_user_folder
 
 DisMount-DiskImage -ImagePath $vhdpath

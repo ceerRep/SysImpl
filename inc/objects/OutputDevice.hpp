@@ -6,16 +6,16 @@
 
 #include "Object.hpp"
 
-class OutputDevice : virtual public Object
+class OutputDevice : public virtual Object
 {
 public:
     virtual int64_t write(const void *data, size_t size) = 0;
 };
 
-OutputDevice *setDefaultOutputDevice(OutputDevice *output);
-OutputDevice *setErrorOutputDevice(OutputDevice *output);
+shared_ptr<OutputDevice> setDefaultOutputDevice(shared_ptr<OutputDevice> output);
+shared_ptr<OutputDevice> setErrorOutputDevice(shared_ptr<OutputDevice> output);
 
-OutputDevice *getDefaultOutputDevice();
-OutputDevice *getErrorOutputDevice();
+shared_ptr<OutputDevice> getDefaultOutputDevice();
+shared_ptr<OutputDevice> getErrorOutputDevice();
 
 #endif

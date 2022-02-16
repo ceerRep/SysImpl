@@ -7,11 +7,6 @@
 
 extern "C"
 {
-    OutputDevice *defaultOutputDevice = nullptr;
-    OutputDevice *errorOutputDevice = nullptr;
-    extern void *stdout __attribute__((alias("defaultOutputDevice")));
-    extern void *stderr __attribute__((alias("errorOutputDevice")));
-
     int fputs(const char *s, void *device)
     {
         Object *object = (Object *)device;
@@ -49,28 +44,4 @@ extern "C"
     {
         return fputc(c, stdout);
     }
-}
-
-OutputDevice *setDefaultOutputDevice(OutputDevice *output)
-{
-    OutputDevice *ret = defaultOutputDevice;
-    defaultOutputDevice = output;
-    return ret;
-}
-
-OutputDevice *setErrorOutputDevice(OutputDevice *output)
-{
-    OutputDevice *ret = errorOutputDevice;
-    errorOutputDevice = output;
-    return ret;
-}
-
-OutputDevice *getDefaultOutputDevice()
-{
-    return defaultOutputDevice;
-}
-
-OutputDevice *getErrorOutputDevice()
-{
-    return errorOutputDevice;
 }

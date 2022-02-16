@@ -48,7 +48,7 @@ struct Section
     const void *buffer;
 };
 
-class Process : virtual public Object
+class Process : public virtual Object
 {
 public:
     enum
@@ -60,8 +60,11 @@ public:
         PROCESS_STACK_SIZE = 8192,
         PROCESS_STACK_ALIGNMENT = 4096,
 
-        PROCESS_ADD_OBJECT_INDEX_BEGIN = 3, // skip 0 1 2
-        PROCESS_ADD_SEGMENT_BEGIN = PROCESS_MAX_OBJECTS - PROCESS_MAX_SEGMENTS
+        PROCESS_SCHE_NORMAL = 0,
+        PROCESS_SCHE_IDLE = 1,
+
+        PROCESS_NORMAL_OBJECT_BEGIN = 3, // skip 0 1 2
+        PROCESS_SEGMENT_BEGIN = PROCESS_MAX_OBJECTS - PROCESS_MAX_SEGMENTS
     };
 
     enum
@@ -83,6 +86,7 @@ private:
     int pid;
     int ppid;
     int process_state;
+    int process_sche_type;
 
     // See fork()
     uintptr_t stack_top_backup;
@@ -97,7 +101,7 @@ public:
     static int getCurrentProcess() { return current_process; }
     static void setCurrentProcess(int pid) { current_process = pid; }
     static Process *getProcess(int pid) { return process_list[pid]; }
-    static void dropProcess(int pid) { process_list[pid] = nullptr; }
+    static void deleteProcess(int pid, int code);
 
     // should called after enter and before leave kernel mode
     static void enterKernelMode();
@@ -128,13 +132,23 @@ public:
         process_state = state;
     }
 
+    int getProcessScheType() const
+    {
+        return process_sche_type;
+    }
+
+    void setProcessScheType(int type)
+    {
+        process_sche_type = type;
+    }
+
     tss_entry_struct_t *getUsermodeState()
     {
         return &usermode_state;
     }
 
     int addObject(shared_ptr<Object> obj);
-    shared_ptr<Object> setObject(int pos, shared_ptr<Object> new_obj);
+    int setObject(int pos, shared_ptr<Object> new_obj);
     shared_ptr<Object> getObject(int pos);
     void removeObject(int pos);
 

@@ -7,5 +7,6 @@ target_include_directories(userspace-lib PUBLIC "${user_space_inc}")
 target_include_directories(userspace-lib PUBLIC "${CMAKE_SOURCE_DIR}/inc/syscall")
 target_link_libraries(userspace-lib llvm-compile-rt-builtin)
 
-add_subdirectory(hw)
-add_subdirectory(fork)
+add_subdirectory(sh)
+add_subdirectory(hlt)
+add_subdirectory(echo)

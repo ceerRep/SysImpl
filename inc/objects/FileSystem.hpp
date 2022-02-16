@@ -52,7 +52,7 @@ struct FSInfo
     uintptr_t total_clusters;
 };
 
-class Fat16FileSystem : virtual public Object
+class Fat16FileSystem : public virtual Object
 {
 public:
     enum
@@ -76,6 +76,7 @@ public:
     const FSInfo *getInfo() const { return &info; }
 
     static Fat16FileSystem *getRootFileSystem();
+    static shared_ptr<File> openFile(shared_ptr<Directory> cwd, const char* path);
 };
 
 #endif

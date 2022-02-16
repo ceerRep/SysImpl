@@ -1,5 +1,6 @@
 #include <objects/BeforeAttachedHook.hpp>
 #include <objects/Process.hpp>
+#include <objects/ProcessWait.hpp>
 
 #include <assert.h>
 #include <common_def.h>
@@ -13,6 +14,8 @@ extern tss_entry_struct_t **tss_array;
 
 Process::Process(Object *parent)
 {
+    process_state = PROCESS_STATE_RUNNABLE;
+    process_sche_type = PROCESS_SCHE_NORMAL;
     pid = -1;
     ppid = -1;
 
@@ -54,7 +57,11 @@ Process::~Process()
     }
 }
 
-static int entered = 0;
+void Process::deleteProcess(int pid, int code)
+{
+    process_list[pid] = nullptr;
+    ProcessWait::getInstance()->processExit(pid, code);
+}
 
 void Process::enterKernelMode()
 {
@@ -74,8 +81,8 @@ int Process::addObject(shared_ptr<Object> obj)
         throw InvalidObjectException();
 
     for (int i = (dynamic_cast<Segment *>(obj.get())
-                      ? PROCESS_ADD_SEGMENT_BEGIN
-                      : PROCESS_ADD_OBJECT_INDEX_BEGIN);
+                      ? PROCESS_SEGMENT_BEGIN
+                      : PROCESS_NORMAL_OBJECT_BEGIN);
          i < Process::PROCESS_MAX_OBJECTS;
          i++)
     {
@@ -94,16 +101,18 @@ int Process::addObject(shared_ptr<Object> obj)
 
 void Process::removeObject(int pos)
 {
-    if (objects[pos])
+    if (pos >= 0 && pos < PROCESS_MAX_OBJECTS && objects[pos])
     {
         objects[pos]->onRemovedByOwner(this);
         objects[pos] = nullptr;
     }
 }
 
-shared_ptr<Object> Process::setObject(int pos, shared_ptr<Object> obj)
+int Process::setObject(int pos, shared_ptr<Object> obj)
 {
-    auto ret = objects[pos];
+    if (pos < 0 || pos >= PROCESS_MAX_OBJECTS)
+        return -1;
+
     removeObject(pos);
 
     if (!obj)
@@ -114,7 +123,7 @@ shared_ptr<Object> Process::setObject(int pos, shared_ptr<Object> obj)
     else
         objects[pos] = obj;
 
-    return ret;
+    return pos;
 }
 
 shared_ptr<Object> Process::getObject(int pos)
@@ -211,10 +220,10 @@ void Process::exec(char **args, Section *sections, int section_num, void *entry_
             throw InvalidSectionException();
         }
 
-        auto segment = create_shared<Object>(new Segment(sections[i].base, sections[i].limit));
+        auto segment = make_shared<Segment>(sections[i].base, sections[i].limit);
         memcpy((void *)sections[i].base, sections[i].buffer, sections[i].limit);
 
-        addObject(segment);
+        addObject(segment.cast<Object>());
     }
 
     if (ppid >= 0)
