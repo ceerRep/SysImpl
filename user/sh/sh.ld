@@ -5,7 +5,6 @@ ENTRY(start)
 
 SECTIONS
 {
-    . = 0x2800000;
     .text :
     {
         *(.text*);
@@ -15,6 +14,10 @@ SECTIONS
         *(.data*);
         *(.bss*);
         *(.rodata*);
+    }
+    .got.plt :
+    {
+        *(.got.plt*);
     }
     /DISCARD/ :
     {

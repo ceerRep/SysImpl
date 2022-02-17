@@ -5,6 +5,7 @@
 #include "Object.hpp"
 #include "Segment.hpp"
 
+#include <kernel_defines.h>
 #include <protected_mode.hpp>
 #include <shared_ptr.hpp>
 #include <stdexcept.h>
@@ -64,7 +65,9 @@ public:
         PROCESS_SCHE_IDLE = 1,
 
         PROCESS_NORMAL_OBJECT_BEGIN = 3, // skip 0 1 2
-        PROCESS_SEGMENT_BEGIN = PROCESS_MAX_OBJECTS - PROCESS_MAX_SEGMENTS
+        PROCESS_SEGMENT_BEGIN = PROCESS_MAX_OBJECTS - PROCESS_MAX_SEGMENTS,
+
+        PROCESS_USER_IMAGE_SPACE = 640_k
     };
 
     enum

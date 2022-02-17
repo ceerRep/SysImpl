@@ -3,7 +3,7 @@
 #define _common_def_h
 
 #define PROCESS_MAX_ARGUMENTS 16
-#define PROCESS_RUNTIME_INFO_SIZE 1024
+#define PROCESS_RUNTIME_INFO_SIZE 512
 
 #ifndef __ASSEMBLER__
 
@@ -11,8 +11,9 @@
 
 typedef struct
 {
+    uint32_t process_runtime_info_addr_arg0;
     uint16_t args[PROCESS_MAX_ARGUMENTS];
-    char buffer[PROCESS_RUNTIME_INFO_SIZE - PROCESS_MAX_ARGUMENTS];
+    char buffer[PROCESS_RUNTIME_INFO_SIZE - PROCESS_MAX_ARGUMENTS - 4];
 } process_runtime_info_t;
 
 typedef struct

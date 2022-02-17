@@ -6,7 +6,6 @@
 int main(int argc, char **argv)
 {
     int waitfd = open(":WAITPID");
-    int comfd = open(":COM1");
 
     char buffer[256];
     char prompt[] = "> ";

@@ -166,6 +166,17 @@ shared_ptr<Process> Process::fork()
 
 void Process::exec(char **args, Section *sections, int section_num, void *entry_point, uint32_t object_keep_low, uint32_t object_keep_high)
 {
+    for (int i = 0; i < section_num; i++)
+        if (sections[i].base + sections[i].limit >= PROCESS_USER_IMAGE_SPACE)
+            throw InvalidSectionException();
+
+    shared_ptr<char> sargs[PROCESS_MAX_ARGUMENTS];
+    for (int i = 0; i < PROCESS_MAX_ARGUMENTS && args[i]; i++)
+    {
+        sargs[i] = create_shared<char>(new char[strlen(args[i]) + 1]);
+        strlcpy(sargs[i], args[i], 20);
+    }
+
     uint64_t bitmap = ((uint64_t)object_keep_high << 32) + object_keep_low;
     for (int i = 0; i < PROCESS_MAX_OBJECTS; i++)
     {
@@ -180,7 +191,7 @@ void Process::exec(char **args, Section *sections, int section_num, void *entry_
     usermode_state.cs = SEGMENT_SELECTOR(SEG_USER_CODE, 0, 3);
     usermode_state.ss0 = SEGMENT_SELECTOR(SEG_KERNEL_DATA, 0, 0);
     usermode_state.ds = usermode_state.es = usermode_state.fs = usermode_state.gs = usermode_state.ss = SEGMENT_SELECTOR(SEG_USER_DATA, 0, 3);
-    usermode_state.eip = (uintptr_t)entry_point;
+    usermode_state.eip = (uintptr_t)entry_point + (uintptr_t)USER_SPACE_START + PROCESS_USER_IMAGE_SPACE * pid;
     usermode_state.eflags |= 1 << 9; // enable interrupt
     usermode_state.iomap_base = sizeof(usermode_state);
 
@@ -194,13 +205,13 @@ void Process::exec(char **args, Section *sections, int section_num, void *entry_
     memset(info->args, 0xFF, sizeof(info->args));
     int total_length = 0;
 
-    for (int i = 0; i < PROCESS_MAX_ARGUMENTS && args[i]; i++)
+    for (int i = 0; i < PROCESS_MAX_ARGUMENTS && sargs[i]; i++)
     {
-        int length = strlen(args[i]);
+        int length = strlen(sargs[i]);
 
         if (total_length + length + 1 <= sizeof(info->buffer))
         {
-            strcpy(info->buffer + total_length, args[i]);
+            strcpy(info->buffer + total_length, sargs[i]);
             info->args[i] = total_length;
             total_length += length + 1;
         }
@@ -208,17 +219,16 @@ void Process::exec(char **args, Section *sections, int section_num, void *entry_
             break;
     }
 
-    // write to ebx
+    info->process_runtime_info_addr_arg0 = usermode_state.esp;
 
-    usermode_state.ebx = usermode_state.esp;
+    // stack alignment
+
+    usermode_state.esp -= 4;
+    *(uint32_t *)usermode_state.esp = 0;
 
     for (int i = 0; i < section_num; i++)
     {
-
-        if (sections[i].base < (uintptr_t)USER_SPACE_START)
-        {
-            throw InvalidSectionException();
-        }
+        sections[i].base += (uintptr_t)USER_SPACE_START + PROCESS_USER_IMAGE_SPACE * pid;
 
         auto segment = make_shared<Segment>(sections[i].base, sections[i].limit);
         memcpy((void *)sections[i].base, sections[i].buffer, sections[i].limit);

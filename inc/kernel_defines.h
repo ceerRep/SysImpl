@@ -7,4 +7,10 @@
 #define IRQ_BASE1 0x28
 #define PROCESS_TICKS 30
 
+#ifdef __cplusplus
+
+static constexpr inline unsigned long long operator""_k(unsigned long long x) { return x * 1024; }
+
+#endif
+
 #endif
