@@ -6,7 +6,7 @@
 uint64_t fork_handler()
 {
     auto now_proc = Process::getProcess(Process::getCurrentProcess());
-    auto child = now_proc->fork();
+    auto child = now_proc->clone(Process::PROCESS_CLONE_KEEP_STACK, nullptr, nullptr);
     return child->getPid();
 }
 

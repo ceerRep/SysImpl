@@ -41,6 +41,11 @@ int32_t fork()
     return syscall(SYSCALL_FORK, 0, 0, 0, 0, 0);
 }
 
+int32_t thread(void *addr, void *data)
+{
+    return syscall(SYSCALL_THREAD, addr, data, 0, 0, 0);
+}
+
 int32_t exec(char *exec, char **args)
 {
     return exec_ex(exec, args, 7, 0);

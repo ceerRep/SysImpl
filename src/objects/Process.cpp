@@ -131,17 +131,41 @@ shared_ptr<Object> Process::getObject(int pos)
     return objects[pos];
 }
 
-shared_ptr<Process> Process::fork()
+shared_ptr<Process> Process::clone(int mode, void *code, void *data)
 {
-    assert("Double fork in the same process, it shouldn't happen" && !stack_backup);
+    assert("Fork with dirty stack, it shouldn't happen" && !stack_backup);
 
     Process *child = new Process(this);
     auto ret = process_list[child->getPid()];
 
-    stack_backup = create_shared<void>(new char[PROCESS_STACK_BACKUP_SIZE]);
+    child->usermode_state = usermode_state;
+    child->setProcessState(PROCESS_STATE_RUNNABLE);
 
-    stack_top_backup = usermode_state.esp;
-    memcpy(stack_backup.get(), (void *)usermode_state.esp, PROCESS_STACK_BACKUP_SIZE);
+    if (mode == PROCESS_CLONE_KEEP_STACK)
+    {
+
+        stack_backup = create_shared<void>(new char[PROCESS_STACK_BACKUP_SIZE]);
+
+        stack_top_backup = usermode_state.esp;
+        memcpy(stack_backup.get(), (void *)usermode_state.esp, PROCESS_STACK_BACKUP_SIZE);
+
+        // return values for child
+        syscall_set_retval(child, 0);
+
+        // sleep
+        setProcessState(PROCESS_STATE_SLEEPING);
+    }
+    else
+    {
+        child->usermode_state.esp = (uintptr_t)(&(user_stack_pos[child->pid][0]) + PROCESS_STACK_SIZE);
+        child->usermode_state.esp0 = (uintptr_t)(&(kernel_stack_pos[child->pid][0]) + PROCESS_STACK_SIZE);
+
+        child->usermode_state.esp -= 16;
+        *(void **)(child->usermode_state.esp) = data;
+        child->usermode_state.esp -= 4;
+        *(void **)(child->usermode_state.esp) = NULL;
+        child->usermode_state.eip = (uintptr_t)code;
+    }
 
     for (int i = 0; i < Process::PROCESS_MAX_OBJECTS; i++)
     {
@@ -151,15 +175,7 @@ shared_ptr<Process> Process::fork()
         }
     }
 
-    child->usermode_state = usermode_state;
-    child->setProcessState(PROCESS_STATE_RUNNABLE);
-
-    // return values for child
-    child->usermode_state.*syscall_ret1 = 0;
-    child->usermode_state.*syscall_ret2 = 0;
-
-    // sleep
-    setProcessState(PROCESS_STATE_SLEEPING);
+    setCurrentProcess(child->pid);
 
     return ret;
 }

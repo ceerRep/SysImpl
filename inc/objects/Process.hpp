@@ -67,7 +67,9 @@ public:
         PROCESS_NORMAL_OBJECT_BEGIN = 3, // skip 0 1 2
         PROCESS_SEGMENT_BEGIN = PROCESS_MAX_OBJECTS - PROCESS_MAX_SEGMENTS,
 
-        PROCESS_USER_IMAGE_SPACE = 640_k
+        PROCESS_USER_IMAGE_SPACE = 640_k,
+        PROCESS_CLONE_KEEP_STACK = 1,
+        PROCESS_CLONE_NEW_THREAD = 2
     };
 
     enum
@@ -91,7 +93,7 @@ private:
     int process_state;
     int process_sche_type;
 
-    // See fork()
+    // See clone()
     uintptr_t stack_top_backup;
     shared_ptr<void> stack_backup;
 
@@ -157,7 +159,7 @@ public:
 
     // Warning: without paging, the two process shares memory, so we backup the memory near its top to avoid stack corruption
     // Parent process will keep sleeping until exec() called
-    shared_ptr<Process> fork();
+    shared_ptr<Process> clone(int mode, void* code, void* data);
 
     // terminated by NULL
     // (object_keep_high << 32) || object_keep_low is a bitmap indicates should keep which objects, 1 for keep

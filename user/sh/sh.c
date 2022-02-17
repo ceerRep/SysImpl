@@ -118,34 +118,5 @@ int main(int argc, char **argv)
         }
     }
 
-    // int sem_sync_parent = sem_create(1);
-    // int sem_sync_child = sem_create(0);
-
-    // int fd = open("/"), n = 0;
-    // fprintf(1, "%d\n", fd);
-    // fprintf(1, "readdir: %d\n", readdir(fd, NULL, &n));
-    // file_info_t infos[n];
-    // fprintf(1, "readdir: %d\n", readdir(fd, infos, &n));
-
-    // for (int i = 0; i < n; i++)
-    // {
-    //     fprintf(1, "%c %s %d\n", infos[i].directory ? 'd' : '-', infos[i].filename, infos[i].size);
-    // }
-
-    // close(fd);
-
-    // fd = open(":CON");
-    // fprintf(1, "%d\n", fd);
-    // fprintf(fd, "114514\n");
-    // close(fd);
-
-    // char buffer[16];
-
-    // for (int siz = 1; siz;) // until EOF
-    // {
-    //     siz = read(0, buffer, 16);
-    //     write(1, buffer, siz);
-    // }
-
     return 0;
 }

@@ -30,6 +30,7 @@ extern "C"
 
     int32_t dup2(uint32_t oldfd, uint32_t newfd);
     int32_t readdir(uint32_t fd, file_info_t *info, int *n);
+    int32_t thread(void *addr, void *data);
 
     void sched_yield();
 
