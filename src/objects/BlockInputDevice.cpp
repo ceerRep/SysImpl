@@ -67,31 +67,26 @@ void BlockInputDeviceWrapper::onRemovedByOwner(Object *owner)
 
 void BlockInputDeviceWrapper::check()
 {
-    if (pending_request_end)
+    auto now_running_process = Process::getCurrentProcess();
+
+    int ind = 0;
+    for (ind = 0; ind < pending_request_end && input->read(nullptr, 0) != -EAGAIN; ind++)
     {
-        int ret = input->read(nullptr, 0);
+        auto now = pending_request[ind];
 
-        if (ret != -EAGAIN)
-        {
-            if (pending_request_end)
-            {
-                auto first = pending_request[0];
-                auto now_running_process = Process::getCurrentProcess();
+        Process::setCurrentProcess(now.proc->getPid());
 
-                Process::setCurrentProcess(first.proc->getPid());
-
-                for (int i = 1; i < pending_request_end; i++)
-                    pending_request[i - 1] = pending_request[i];
-                pending_request_end--;
-
-                first.proc->setProcessState(Process::PROCESS_STATE_RUNNABLE);
-                ret = do_read(first.proc, first.buffer, first.size);
-                syscall_set_retval(first.proc, ret);
-
-                Process::setCurrentProcess(now_running_process);
-            }
-        }
+        now.proc->setProcessState(Process::PROCESS_STATE_RUNNABLE);
+        int ret = do_read(now.proc, now.buffer, now.size);
+        syscall_set_retval(now.proc, ret);
     }
+
+    pending_request_end -= ind;
+
+    for (int i = 0; i < pending_request_end; i++)
+        pending_request[i] = pending_request[i + ind];
+
+    Process::setCurrentProcess(now_running_process);
 }
 
 void BlockInputDeviceWrapper::checkAll()
